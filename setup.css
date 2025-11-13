@@ -213,6 +213,20 @@ button.primary{
   background:var(--accent);
   color:#fff;
 }
+button.secondary {
+  background: #f1f3f5;
+  color: #495057;
+  border: 1px solid #ced4da;
+}
+button.secondary:hover {
+  background: #e9ecef;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+button.small {
+  font-size: 13px;
+  padding: 7px 12px;
+}
 button#openCustom{
   padding:10px 16px;
   background:var(--card-bg);
@@ -313,16 +327,50 @@ select:focus{
   cursor:pointer;
   accent-color:var(--accent);
 }
-.custom-actions{
-  display:flex;
-  gap:8px;
-  margin-top:16px;
-  padding-top:14px;
-  border-top:1px solid #e0e0e0;
+
+/* ========== PROFILE MANAGEMENT (Export / Import) ========== */
+.profile-management {
+  margin-top: 20px;
+  padding: 12px 0;
+  border-top: 1px solid #e0e0e0;
+  font-size: 13px;
+  color: #555;
 }
+
+.management-label {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.management-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.management-actions button {
+  flex: 1;
+  min-width: 120px;
+  font-size: 13px;
+  padding: 8px 12px;
+}
+
+/* ========== MAIN ACTION BAR ========== */
+.custom-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #e0e0e0;
+}
+
 .custom-actions button {
-  flex:1;
+  flex: 1;
 }
+
+/* ========== FORM GRID ========== */
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -331,12 +379,23 @@ select:focus{
 .full-width {
   grid-column: 1 / -1;
 }
-@media (max-width:700px){
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 700px) {
   body { padding: 12px; }
-  .profiles-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
-  .custom-section{flex-direction:column}
-  .custom-panel{max-width:100%;margin-left:0}
-  header h1{font-size:24px}
+  .profiles-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+  .custom-section {
+    flex-direction: column;
+  }
+  .custom-panel {
+    max-width: 100%;
+    margin-left: 0;
+  }
+  header h1 {
+    font-size: 24px;
+  }
   .preview-container {
     flex-direction: column;
     gap: 16px;
@@ -348,5 +407,18 @@ select:focus{
   .form-grid {
     grid-template-columns: 1fr;
     gap: 12px;
+  }
+
+  /* Mobile: Stack Export/Import buttons */
+  .management-actions {
+    flex-direction: column;
+  }
+  .management-actions button {
+    min-width: auto;
+  }
+
+  /* Mobile: Stack main actions */
+  .custom-actions {
+    flex-direction: column;
   }
 }

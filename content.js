@@ -1,91 +1,143 @@
-function applyProfileToDocument(profile) {
-  if (!profile) return;
+// content.js
+(() => {
+  'use strict';
 
-  // Prevent double injection
-  const existing = document.getElementById('aura-style-override');
-  if (existing) existing.remove();
+  const STYLE_ID = 'aura-style-override';
+  const SHADOW_STYLE_ID = 'aura-shadow-override';
 
-  const style = document.createElement('style');
-  style.id = 'aura-style-override';
+  let currentProfile = null;
+  let isEnabled = true;
 
-  // Check if animations should be disabled
-  const disableAnimations = profile.animations === false;
+  // === 1. Inject into Light DOM (normal pages) ===
+  const injectGlobalStyle = () => {
+    const style = document.createElement('style');
+    style.id = STYLE_ID;
+    style.textContent = buildCSS(currentProfile);
+    document.head.appendChild(style);
+  };
 
-  const css = `
-    :root {
-      --aura-bg: ${profile.bgColor};
-      --aura-text: ${profile.textColor};
-      --aura-font: ${profile.fontFamily};
-      --aura-size: ${profile.fontSize}px;
-      --aura-line: ${profile.lineHeight};
-      --aura-letter: ${(profile.letterSpacing || 0)}px;
-      --aura-word: ${(profile.wordSpacing || 0)}px;
+  // === 2. Inject into ALL Shadow DOM roots ===
+  const injectIntoShadowRoots = () => {
+    const walker = document.createTreeWalker(
+      document.body,
+      NodeFilter.SHOW_ELEMENT,
+      {
+        acceptNode: (node) => node.shadowRoot ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP
+      }
+    );
+
+    const roots = [];
+    let node;
+    while ((node = walker.nextNode())) {
+      if (node.shadowRoot) roots.push(node.shadowRoot);
     }
-    html, body {
-      background-color: var(--aura-bg) !important;
-      color: var(--aura-text) !important;
-      font-family: var(--aura-font) !important;
-      font-size: var(--aura-size) !important;
-      line-height: var(--aura-line) !important;
-      letter-spacing: var(--aura-letter) !important;
-      word-spacing: var(--aura-word) !important;
-      ${disableAnimations ? 'animation: none !important; transition: none !important;' : ''}
-    }
-    p, li, span, a, h1, h2, h3, h4, h5, h6 {
-      color: var(--aura-text) !important;
-      font-family: var(--aura-font) !important;
-      letter-spacing: var(--aura-letter) !important;
-      word-spacing: var(--aura-word) !important;
-      ${disableAnimations ? 'animation: none !important; transition: none !important;' : ''}
-    }
-    img, video { 
-      outline: none !important;
-      ${disableAnimations ? 'animation: none !important;' : ''}
-    }
-    ${disableAnimations ? `* { animation: none !important; transition: none !important; }` : ''}
-  `;
 
-  style.appendChild(document.createTextNode(css));
-  document.documentElement.prepend(style);
-}
+    roots.forEach(root => {
+      if (root.querySelector(`#${SHADOW_STYLE_ID}`)) return; // avoid dupes
 
-// Get the saved profile and apply
-function init() {
-  function doApply(profile) {
-    chrome.storage.sync.get(['aura_enabled'], (res) => {
-      const enabled = res && typeof res.aura_enabled !== 'undefined' ? res.aura_enabled : true;
-      if (enabled) applyProfileToDocument(profile);
+      const style = document.createElement('style');
+      style.id = SHADOW_STYLE_ID;
+      style.textContent = buildCSS(currentProfile);
+      root.appendChild(style);
     });
-  }
+  };
 
-  if (chrome && chrome.storage && chrome.storage.sync) {
-    chrome.storage.sync.get(['aura_profile'], (res) => {
-      if (res && res.aura_profile) {
-        doApply(res.aura_profile);
+  // === 3. Build CSS string (shared) ===
+  const buildCSS = (profile) => {
+    if (!profile) return '';
+
+    const disableAnim = profile.animations === false;
+    const cursor = profile.cursorType || 'auto';
+
+    return `
+      *, *::before, *::after {
+        cursor: ${cursor} !important;
+        font-family: ${profile.fontFamily} !important;
+        font-size: ${profile.fontSize}px !important;
+        line-height: ${profile.lineHeight} !important;
+        letter-spacing: ${(profile.letterSpacing || 0)}px !important;
+        word-spacing: ${(profile.wordSpacing || 0)}px !important;
+        color: ${profile.textColor} !important;
+        ${disableAnim ? 'animation: none !important; transition: none !important;' : ''}
+      }
+      body, html {
+        background-color: ${profile.bgColor} !important;
+      }
+      ${disableAnim ? `* { animation: none !important; transition: none !important; }` : ''}
+    `;
+  };
+
+  // === 4. Apply full profile ===
+  const applyProfile = (profile) => {
+    if (!profile) return;
+    currentProfile = profile;
+
+    // Remove old global style
+    const old = document.getElementById(STYLE_ID);
+    if (old) old.remove();
+
+    if (isEnabled) {
+      injectGlobalStyle();
+      injectIntoShadowRoots();
+    }
+  };
+
+  // === 5. Observe DOM changes (new shadow roots) ===
+  const observer = new MutationObserver((mutations) => {
+    if (!isEnabled || !currentProfile) return;
+
+    let needsInject = false;
+    for (const m of mutations) {
+      if (m.addedNodes.length) {
+        needsInject = true;
+        break;
+      }
+    }
+    if (needsInject) {
+      setTimeout(injectIntoShadowRoots, 100); // small delay to let shadow attach
+    }
+  });
+
+  // === 6. Init ===
+  const init = () => {
+    // Load profile
+    chrome.storage.sync.get(['aura_profile', 'aura_enabled'], (res) => {
+      isEnabled = res.aura_enabled !== false;
+      if (res.aura_profile && isEnabled) {
+        applyProfile(res.aura_profile);
       }
     });
 
-    // Listen for changes to apply dynamically
-    chrome.storage.onChanged.addListener((changes, area) => {
-      if (area === 'sync' && changes.aura_profile) {
-        doApply(changes.aura_profile.newValue);
+    // Listen for changes
+    chrome.storage.onChanged.addListener((changes) => {
+      if (changes.aura_profile) {
+        applyProfile(changes.aura_profile.newValue);
       }
-      if (area === 'sync' && changes.aura_enabled) {
-        if (!changes.aura_enabled.newValue) {
-          const existing = document.getElementById('aura-style-override');
-          if (existing) existing.remove();
-        } else {
-          chrome.storage.sync.get(['aura_profile'], (res) => {
-            if (res && res.aura_profile) applyProfileToDocument(res.aura_profile);
-          });
+      if (changes.aura_enabled) {
+        isEnabled = changes.aura_enabled.newValue !== false;
+        if (!isEnabled) {
+          document.getElementById(STYLE_ID)?.remove();
+          document.querySelectorAll(`#${SHADOW_STYLE_ID}`).forEach(el => el.remove());
+        } else if (currentProfile) {
+          applyProfile(currentProfile);
         }
       }
     });
-  } else {
-    // Fallback for testing
-    const raw = localStorage.getItem('aura_profile');
-    if (raw) applyProfileToDocument(JSON.parse(raw));
-  }
-}
 
-init();
+    // Start observing
+    observer.observe(document.body, { childList: true, subtree: true });
+  };
+
+  // Run
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+  // === Fallback for local testing ===
+  if (!chrome?.storage) {
+    const raw = localStorage.getItem('aura_profile');
+    if (raw) applyProfile(JSON.parse(raw));
+  }
+})();
