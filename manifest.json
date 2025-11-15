@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "AURA — Accessibility Profiles",
+  "version": "1.0.0",
+  "description": "AURA - set accessibility profiles for better reading.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "contextMenus",
+    "tts",
+    "tabs"
+  ],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_popup": "popup.html", "default_title": "AURA" },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["sidepanel.html", "sidepanel.js", "sidepanel.css"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

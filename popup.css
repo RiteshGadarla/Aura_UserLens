@@ -1,0 +1,153 @@
+/* === POPUP CONTAINER === */
+.popup {
+  width: 300px;
+  padding: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: #ffffff;
+  color: #1f2937;
+  min-width: 260px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* === TITLE === */
+.popup h3 {
+  margin: 0 0 10px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #4b6cff;
+  letter-spacing: -0.2px;
+}
+
+/* === CURRENT PROFILE DISPLAY === */
+#currentProfile {
+  font-size: 14px;
+  color: #374151;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  background: #f8f9ff;
+  border-radius: 6px;
+  border-left: 3px solid #4b6cff;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* === TOGGLE SWITCH CONTAINER === */
+.toggle-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  user-select: none;
+  font-size: 14px;
+}
+
+.toggle-label {
+  font-weight: 500;
+  color: #374151;
+}
+
+/* === SLIDING TOGGLE SWITCH === */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 26px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #d1d5db;
+  transition: background-color 0.3s ease;
+  border-radius: 26px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: transform 0.3s ease;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* ON State */
+input:checked + .slider {
+  background-color: #4b6cff;
+}
+
+input:checked + .slider:before {
+  transform: translateX(22px);
+}
+
+/* Hover Effect */
+.toggle-switch:hover .slider {
+  box-shadow: 0 0 1px 3px rgba(75, 108, 255, 0.15);
+}
+
+/* === ACTIONS (BUTTONS) === */
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.actions button {
+  flex: 1;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #eef0ff;
+  color: #0b1b3a;
+}
+
+.actions button:hover {
+  background: #dde1ff;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(75, 108, 255, 0.2);
+}
+
+#openSetup {
+  background: #4b6cff;
+  color: white;
+}
+
+#openSetup:hover {
+  background: #3a5be0;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(75, 108, 255, 0.3);
+}
+
+/* === RESPONSIVE (for very small popups) === */
+@media (max-width: 280px) {
+  .popup {
+    padding: 12px;
+  }
+  .toggle-container {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .toggle-label {
+    font-size: 13px;
+  }
+}

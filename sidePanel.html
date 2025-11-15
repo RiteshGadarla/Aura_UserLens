@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>AURA — Ask this page</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <div id="root" role="dialog" aria-label="Ask this page">
+    <div id="panelContent"> 
+      <header>
+        <strong>Ask this page</strong>
+        <button id="closeBtn" title="Close" aria-label="Close side panel">×</button>
+      </header>
+
+      <form id="askForm" autocomplete="off">
+        <label for="q">Question</label>
+        <input id="q" name="q" type="text" placeholder="e.g., Key steps?" aria-label="Question" />
+        <button id="ask" type="submit">Ask</button>
+      </form>
+
+      <div id="answer" aria-live="polite"></div>
+
+      <div style="margin-top:8px; display:flex; align-items:center; gap:8px;">
+        <div id="status" style="font-size:12px;color:#4b6cff;min-width:120px"></div>
+        <label style="margin-left:auto; display:flex; align-items:center; gap:6px; font-size:12px;">
+          <input type="checkbox" id="largeText" checked /> Large text
+        </label>
+      </div>
+
+      <footer>
+        <button id="copy" aria-label="Copy answer">Copy</button>
+        <button id="speak" aria-label="Speak answer">Speak</button>
+      </footer>
+    </div>
+    </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>
