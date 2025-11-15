@@ -820,3 +820,61 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
   })();
 
 })();
+/********************************************************************
+ *             AURA — SPEECH TO TEXT (FORM + EMAIL INPUT)
+ ********************************************************************/
+let auraSttActive = false;
+let auraRecognition = null;
+
+// Detect browser support
+if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    auraRecognition = new Rec();
+    auraRecognition.lang = "en-IN";
+    auraRecognition.continuous = false;
+    auraRecognition.interimResults = false;
+
+    auraRecognition.onresult = (event) => {
+        const text = event.results[0][0].transcript.trim();
+        auraInsertIntoFocusedField(text);
+    };
+}
+
+function auraInsertIntoFocusedField(text) {
+    const el = document.activeElement;
+
+    if (!el) return;
+
+    // Standard Inputs
+    if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
+        el.value += (el.value ? " " : "") + text;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        return;
+    }
+
+    // Rich Editors (Gmail compose box, Notion, etc.)
+    if (el.isContentEditable) {
+        el.innerText += " " + text;
+        return;
+    }
+}
+
+// Start/Stop Recognition
+function auraToggleSTT() {
+    if (!auraRecognition) return;
+
+    if (!auraSttActive) {
+        auraSttActive = true;
+        auraRecognition.start();
+    } else {
+        auraSttActive = false;
+        auraRecognition.stop();
+    }
+}
+
+// Listen for toggle from sidepanel/popup
+chrome.runtime.onMessage.addListener((msg) => {
+    if (msg.type === "AURA_TOGGLE_STT") {
+        auraToggleSTT();
+    }
+});
