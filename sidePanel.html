@@ -5,6 +5,19 @@
   <title>AURA — Ask this page</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="sidepanel.css">
+  <style>
+    /* small inline style so layout isn't broken while testing */
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin:0; background:#f6f7fb; color:#111 }
+    #root { padding: 12px; max-width:560px; }
+    #panelContent { background:#fff; border-radius:10px; box-shadow:0 6px 20px rgba(12,14,23,0.08); padding:12px; }
+    header { display:flex; align-items:center; gap:8px; justify-content:space-between; padding-bottom:6px; border-bottom:1px solid #eee }
+    form { margin:10px 0; display:flex; gap:8px; align-items:center }
+    form input[type="text"]{ flex:1; padding:8px; border-radius:6px; border:1px solid #ddd }
+    button { padding:8px 10px; border-radius:6px; border:1px solid #ccc; background:#fff; cursor:pointer }
+    #answer { margin-top:8px; min-height:48px; padding:8px; border-radius:6px; background:#fbfbff; border:1px solid #f0f2ff }
+    footer { display:flex; gap:8px; margin-top:10px; }
+    details { background:transparent; }
+  </style>
 </head>
 <body>
   <div id="root" role="dialog" aria-label="Ask this page">
@@ -15,7 +28,7 @@
       </header>
 
       <form id="askForm" autocomplete="off">
-        <label for="q">Question</label>
+        <label for="q" style="display:none">Question</label>
         <input id="q" name="q" type="text" placeholder="e.g., Key steps?" aria-label="Question" />
         <button id="ask" type="submit">Ask</button>
       </form>
@@ -34,7 +47,7 @@
         <button id="speak" aria-label="Speak answer">Speak</button>
       </footer>
     </div>
-    </div>
+  </div>
 
   <script src="sidepanel.js"></script>
 </body>
