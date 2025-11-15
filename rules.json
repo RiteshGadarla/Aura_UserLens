@@ -1,0 +1,102 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://(?:[^/]+\\.)?(doubleclick\\.net|googleadservices\\.com|googlesyndication\\.com|google-analytics\\.com)/",
+      "resourceTypes": ["sub_frame", "script", "image", "xmlhttprequest"]
+    }
+  },
+  {
+    "id": 2,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://(?:[^/]+\\.)?(adservice\\.google|ad\\.doubleclick\\.net|pagead2\\.googlesyndication\\.com)/",
+      "resourceTypes": ["sub_frame", "script", "image"]
+    }
+  },
+  {
+    "id": 3,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://(?:[^/]+\\.)?(amazon-adsystem\\.com|adnxs\\.com|pubmatic\\.com)/",
+      "resourceTypes": ["script", "image", "sub_frame"]
+    }
+  },
+  {
+    "id": 4,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "/ad(s)?($|\\?)",
+      "resourceTypes": ["script", "image"],
+      "excludedInitiatorDomains": ["google.com", "youtube.com"]
+    }
+  },
+  {
+    "id": 5,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://[^/]*ads\\.",
+      "resourceTypes": ["sub_frame", "script"]
+    }
+  },
+  {
+    "id": 6,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "adserver",
+      "resourceTypes": ["sub_frame", "script"]
+    }
+  },
+  {
+    "id": 7,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "banner",
+      "resourceTypes": ["image", "sub_frame"]
+    }
+  },
+  {
+    "id": 8,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "popup|popup-ad",
+      "resourceTypes": ["script", "sub_frame"]
+    }
+  },
+  {
+    "id": 9,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://(?:[^/]+\\.)?(facebook\\.com/tr\\.|twitter\\.com/i/ads)",
+      "resourceTypes": ["script", "image"]
+    }
+  },
+  {
+    "id": 10,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "criteo\\.net|taboola",
+      "resourceTypes": ["script", "xmlhttprequest"]
+    }
+  },
+  {
+    "id": 11,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "outbrain\\.com|revcontent",
+      "resourceTypes": ["sub_frame", "script"]
+    }
+  }
+]
