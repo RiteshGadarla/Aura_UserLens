@@ -1,19 +1,37 @@
 {
   "manifest_version": 3,
-  "name": "AURA — Accessibility Profiles",
-  "version": "1.0.0",
-  "description": "AURA - set accessibility profiles for better reading.",
+  "name": "AURA — Accessibility & Ad Blocker",
+  "version": "1.1.0",
+  "description": "AURA - set accessibility profiles for better reading + blocks ads efficiently across all sites.",
   "permissions": [
     "storage",
     "activeTab",
     "scripting",
     "contextMenus",
     "tts",
-    "tabs"
+    "tabs",
+    "declarativeNetRequest",
+    "declarativeNetRequestFeedback"
   ],
-  "host_permissions": ["<all_urls>"],
-  "background": { "service_worker": "background.js" },
-  "action": { "default_popup": "popup.html", "default_title": "AURA" },
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "adblock_rules",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "AURA"
+  },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
