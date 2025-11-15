@@ -108,6 +108,16 @@ header p{color:#555;margin-top:4px}
     transform:translateY(0);
   }
 }
+/* Preview area link styling — uses CSS variable set by JS */
+#previewBox {
+  /* allow a CSS var to control link color from JS */
+  --aura-link-color: #1a0dab;
+}
+#previewBox a {
+  color: var(--aura-link-color);
+  text-decoration: underline;
+  cursor: pointer;
+}
 #previewText {
   animation:textFadeIn .5s ease-out;
   margin:0;

@@ -37,6 +37,7 @@
   --aura-line: ${profile.lineHeight};
   --aura-letter: ${(profile.letterSpacing || 0)}px;
   --aura-word: ${(profile.wordSpacing || 0)}px;
+  --aura-link: ${profile.linkColor || '#1a0dab'};
 }
 *, *::before, *::after {
   cursor: ${cursor} !important;
@@ -50,6 +51,9 @@
 }
 html, body {
   background-color: ${profile.bgColor} !important;
+}
+a, a * {
+  color: var(--aura-link) !important;
 }
 ${disableAnim ? `* { animation: none !important; transition: none !important; }` : ''}
       `;

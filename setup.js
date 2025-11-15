@@ -1,26 +1,27 @@
-// Profiles with default settings
+// Profiles with default settings (now with linkColor)
 const profiles = [
-  { id: 'none', name: 'None (Default)', fontSize: 16, fontFamily: "'Arial', sans-serif", bgColor: "#ffffff", textColor: "#000000", lineHeight: 1.4, letterSpacing: 0, wordSpacing: 0, animations: true, cursorType: 'auto'},
-  { id: 'dyslexia', name: 'Dyslexia', fontSize: 20, fontFamily: "'OpenDyslexic','Verdana', 'Arial', sans-serif", bgColor: "#fffbe6", textColor: "#0b1b3a", lineHeight: 1.6, letterSpacing: 0.15, wordSpacing: 0.25, animations: false, cursorType: 'auto' },
-  { id: 'adhd', name: 'ADHD', fontSize: 18, fontFamily: "'Open Sans', sans-serif", bgColor: "#ffffff", textColor: "#111111", lineHeight: 1.4, letterSpacing: 0, wordSpacing: 0, animations: true, cursorType: 'auto' },
-  { id: 'autism', name: 'Autism Spectrum', fontSize: 19, fontFamily: "'Arial', sans-serif", bgColor: "#f6fbff", textColor: "#0b2a4a", lineHeight: 1.6, letterSpacing: 0, wordSpacing: 0, animations: true, cursorType: 'auto' },
-  { id: 'lowvision', name: 'Low Vision', fontSize: 26, fontFamily: "'Verdana', sans-serif", bgColor: "#000000", textColor: "#ffffff", lineHeight: 1.5, letterSpacing: 0, wordSpacing: 0, animations: true, cursorType: 'auto' },
-  { id: 'colorblind', name: 'Color Blindness', fontSize: 18, fontFamily: "'Arial', sans-serif", bgColor: "#ffffff", textColor: "#000000", lineHeight: 1.5, letterSpacing: 0, wordSpacing: 0, animations: true, cursorType: 'auto' },
-  { id: 'fatigue', name: 'Cognitive Fatigue', fontSize: 18, fontFamily: "'Roboto', sans-serif", bgColor: "#f4f7f6", textColor: "#1b2b2b", lineHeight: 1.8, letterSpacing: 0, wordSpacing: 0, animations: true, cursorType: 'auto' },
-  { id: 'epilepsy', name: 'Epilepsy Sensitivity', fontSize: 18, fontFamily: "'Arial', sans-serif", bgColor: "#ffffff", textColor: "#000000", lineHeight: 1.6, letterSpacing: 0, wordSpacing: 0, animations: false, cursorType: 'auto' },
-  { id: 'motor', name: 'Motor Coordination', fontSize: 18, fontFamily: "'Arial', sans-serif", bgColor: "#fffef6", textColor: "#0b1b3a", lineHeight: 1.6, letterSpacing: 0, wordSpacing: 0, animations: true, cursorType: 'auto' }
+  { id: 'none', name: 'None (Default)', fontSize: 16, fontFamily: "'Arial', sans-serif", bgColor: "#ffffff", textColor: "#000000", linkColor: "#1a0dab", lineHeight: 1.4, letterSpacing: 0, wordSpacing: 0, animations: true, cursorType: 'auto'},
+  { id: 'dyslexia', name: 'Dyslexia', fontSize: 20, fontFamily: "'OpenDyslexic','Verdana', 'Arial', sans-serif", bgColor: "#fffbe6", textColor: "#0b1b3a", linkColor: "#165788", lineHeight: 1.6, letterSpacing: 0.18, wordSpacing: 0.28, animations: false, cursorType: 'text' },
+  { id: 'adhd', name: 'ADHD', fontSize: 18, fontFamily: "'Open Sans', sans-serif", bgColor: "#ffffff", textColor: "#111111", linkColor: "#0066cc", lineHeight: 1.4, letterSpacing: 0, wordSpacing: 0, animations: true, cursorType: 'auto' },
+  { id: 'autism', name: 'Autism', fontSize: 19, fontFamily: "'Arial', sans-serif", bgColor: "#f6fbff", textColor: "#0b2a4a", linkColor: "#0b5fff", lineHeight: 1.6, letterSpacing: 0, wordSpacing: 0, animations: true, cursorType: 'auto' },
+  { id: 'lowvision', name: 'Low Vision', fontSize: 26, fontFamily: "'Verdana', sans-serif", bgColor: "#000000", textColor: "#ffffff", linkColor: "#66b3ff", lineHeight: 1.5, letterSpacing: 0, wordSpacing: 0, animations: true, cursorType: 'auto' },
+  { id: 'colorblind', name: 'Color Blindness', fontSize: 18, fontFamily: "'Arial', sans-serif", bgColor: "#ffffff", textColor: "#000000", linkColor: "#2b6cb0", lineHeight: 1.5, letterSpacing: 0, wordSpacing: 0, animations: true, cursorType: 'auto' },
+  { id: 'fatigue', name: 'Cognitive Fatigue', fontSize: 18, fontFamily: "'Roboto', sans-serif", bgColor: "#f4f7f6", textColor: "#1b2b2b", linkColor: "#2b6cb0", lineHeight: 1.8, letterSpacing: 0, wordSpacing: 0, animations: true, cursorType: 'auto' },
+  { id: 'epilepsy', name: 'Epilepsy Sensitivity', fontSize: 18, fontFamily: "'Arial', sans-serif", bgColor: "#ffffff", textColor: "#000000", linkColor: "#1a0dab", lineHeight: 1.6, letterSpacing: 0, wordSpacing: 0, animations: false, cursorType: 'auto' },
+  { id: 'motor', name: 'Motor Coordination', fontSize: 18, fontFamily: "'Arial', sans-serif", bgColor: "#fffef6", textColor: "#0b1b3a", linkColor: "#1a73e8", lineHeight: 1.6, letterSpacing: 0, wordSpacing: 0, animations: true, cursorType: 'auto' }
 ];
 
 const profilesGrid = document.getElementById('profilesGrid');
 const previewText = document.getElementById('previewText');
 const previewBox = document.getElementById('previewBox');
+const previewLink = document.getElementById('previewLink');
 const saveBtn = document.getElementById('saveBtn');
 const openCustom = document.getElementById('openCustom');
 const customPanel = document.getElementById('customPanel');
 const resetCustom = document.getElementById('resetCustom');
-const exportCustom = document.getElementById('exportCustom');        // NEW
-const importCustom = document.getElementById('importCustom');        // NEW
-const importFileInput = document.getElementById('importFileInput');  // NEW
+const exportCustom = document.getElementById('exportCustom');
+const importCustom = document.getElementById('importCustom');
+const importFileInput = document.getElementById('importFileInput');
 
 const fontFamilyEl = document.getElementById('fontFamily');
 const fontSizeEl = document.getElementById('fontSize');
@@ -33,6 +34,7 @@ const lineHeightEl = document.getElementById('lineHeight');
 const lineHeightVal = document.getElementById('lineHeightVal');
 const bgColorEl = document.getElementById('bgColor');
 const textColorEl = document.getElementById('textColor');
+const linkColorEl = document.getElementById('linkColor'); // NEW
 const cursorTypeEl = document.getElementById('cursorType');
 const animationsCheckbox = document.getElementById('animationsCheckbox');
 const saveCustom = document.getElementById('saveCustom');
@@ -58,7 +60,7 @@ function renderProfiles() {
   });
 }
 
-// Apply settings to preview
+// Apply settings to preview (now handles link color by setting CSS var)
 function applyToPreview(settings) {
   previewBox.style.backgroundColor = settings.bgColor;
   previewText.style.color = settings.textColor;
@@ -69,6 +71,11 @@ function applyToPreview(settings) {
   previewText.style.wordSpacing = settings.wordSpacing + 'px';
   previewBox.style.cursor = settings.cursorType || 'auto';
 
+  // Set link color via CSS variable used in setup.css (#previewBox a { color: var(--aura-link-color); })
+  const linkColor = settings.linkColor || '#1a0dab';
+  previewBox.style.setProperty('--aura-link-color', linkColor);
+
+  // animations
   if (settings.animations === false) {
     previewBox.classList.add('no-animations');
     previewText.classList.add('no-animations');
@@ -101,7 +108,7 @@ function updateProfileDisplay(profile) {
   }
 }
 
-// Sync custom panel with current profile
+// Sync custom panel with current profile (includes linkColor)
 function updateCustomPanel(profile) {
   fontFamilyEl.value = profile.fontFamily;
   fontSizeEl.value = profile.fontSize;
@@ -114,6 +121,7 @@ function updateCustomPanel(profile) {
   lineHeightVal.textContent = profile.lineHeight;
   bgColorEl.value = profile.bgColor;
   textColorEl.value = profile.textColor;
+  linkColorEl.value = profile.linkColor || '#1a0dab';
   cursorTypeEl.value = profile.cursorType || 'auto';
   animationsCheckbox.checked = profile.animations !== false;
 }
@@ -132,6 +140,7 @@ function updateCustomPreview() {
     fontFamily: fontFamilyEl.value,
     bgColor: bgColorEl.value,
     textColor: textColorEl.value,
+    linkColor: linkColorEl.value,
     lineHeight: parseFloat(lineHeightEl.value),
     letterSpacing: parseFloat(letterSpacingEl.value),
     wordSpacing: parseFloat(wordSpacingEl.value),
@@ -144,7 +153,7 @@ function updateCustomPreview() {
   updateProfileDisplay(settings);
 }
 
-// Live input listeners
+// Live input listeners (including link color)
 fontSizeEl.addEventListener('input', () => {
   fontSizeVal.textContent = fontSizeEl.value;
   updateCustomPreview();
@@ -164,6 +173,7 @@ lineHeightEl.addEventListener('input', () => {
 fontFamilyEl.addEventListener('change', updateCustomPreview);
 bgColorEl.addEventListener('input', updateCustomPreview);
 textColorEl.addEventListener('input', updateCustomPreview);
+linkColorEl.addEventListener('input', updateCustomPreview); // NEW
 cursorTypeEl.addEventListener('change', updateCustomPreview);
 animationsCheckbox.addEventListener('change', updateCustomPreview);
 
@@ -197,8 +207,8 @@ importFileInput.addEventListener('change', (e) => {
     try {
       const imported = JSON.parse(ev.target.result);
 
-      // Validate required fields
-      const required = ['fontSize', 'fontFamily', 'bgColor', 'textColor', 'lineHeight', 'letterSpacing', 'wordSpacing', 'cursorType', 'animations'];
+      // Validate required fields (added linkColor)
+      const required = ['fontSize', 'fontFamily', 'bgColor', 'textColor', 'linkColor', 'lineHeight', 'letterSpacing', 'wordSpacing', 'cursorType', 'animations'];
       const isValid = required.every(key => key in imported);
 
       if (!isValid) throw new Error('Invalid profile format');
@@ -215,6 +225,7 @@ importFileInput.addEventListener('change', (e) => {
       lineHeightVal.textContent = imported.lineHeight;
       bgColorEl.value = imported.bgColor;
       textColorEl.value = imported.textColor;
+      linkColorEl.value = imported.linkColor || '#1a0dab';
       cursorTypeEl.value = imported.cursorType;
       animationsCheckbox.checked = imported.animations;
 
@@ -242,7 +253,7 @@ resetCustom.addEventListener('click', () => {
 function resetToDefaultProfile() {
   selectProfile(defaultProfile);
   customPanel.classList.add('hidden');
-  alert('Settings reset to default (Dyslexia profile).');
+  alert('Settings reset to default (None).');
 }
 
 // === SAVE & CONTINUE ===
@@ -286,7 +297,8 @@ if (chrome && chrome.storage && chrome.storage.sync) {
       updateProfileDisplay(saved);
       const match = profiles.find(p => p.id === saved.id);
       if (match) {
-        document.getElementById(`card-${match.id}`).classList.add('selected');
+        const cardEl = document.getElementById(`card-${match.id}`);
+        if (cardEl) cardEl.classList.add('selected');
       }
     }
   });

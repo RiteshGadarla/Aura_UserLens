@@ -63,6 +63,11 @@
             <input id="textColor" type="color" value="#000000" />
           </label>
 
+          <label>Link color
+            <input id="linkColor" type="color" value="#1a0dab" />
+          </label>
+
+
           <label class="full-width">Cursor Type
             <select id="cursorType">
               <option value="auto">Auto</option>
@@ -111,7 +116,8 @@
         <div id="profileDisplay" class="profile-display">Profile: Dyslexia</div>
         <div id="previewBox" class="preview-box">
           <p id="previewText">
-            The quick brown fox jumps over the lazy dog. This sample text previews the chosen accessibility profile. Adjust settings to see live changes.
+            The quick brown fox jumps over the lazy dog. This sample text previews the chosen accessibility profile.
+            Try a <a id="previewLink" href="#" onclick="return false;">sample link</a> to see the chosen color.
           </p>
         </div>
       </section>
