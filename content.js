@@ -597,6 +597,44 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
       }
     }
 
+  // --- sanitize model outputs (strip assistant framing like "The following is the translation...") ---
+  function sanitizeModelOutput(text) {
+    if (!text || typeof text !== 'string') return text || '';
+
+    let s = text.trim();
+
+    // Common framing patterns to remove (case-insensitive)
+    // - "The following is the translation of the provided text (CONTEXT_BLOCK_1) into Hindi: ..."
+    // - "The following is a translation of the provided text: ..."
+    // - "Translation:" "Translated:" "Answer:" etc.
+    const framingPatterns = [
+      /^\s*the following is (?:a )?translation(?: of the provided text(?: \(?context_block_\d+\)? )?)?(?: into [^:]+)?:\s*/i,
+      /^\s*the following is (?:a )?translation(?: of the provided text)?:\s*/i,
+      /^\s*the following is (?:the )?translation(?:\:)?\s*/i,
+      /^\s*translation\s*[:\-]\s*/i,
+      /^\s*translated\s*[:\-]\s*/i,
+      /^\s*answer\s*[:\-]\s*/i,
+      /^\s*result\s*[:\-]\s*/i,
+      /^\s*the translation is\s*[:\-]?\s*/i
+    ];
+
+    for (const re of framingPatterns) {
+      if (re.test(s)) {
+        s = s.replace(re, '').trim();
+        break;
+      }
+    }
+
+    // If model included explicit context tags like [CONTEXT_BLOCK_1] or "CONTEXT_BLOCK_1:" remove them
+    s = s.replace(/^\s*\[?CONTEXT_BLOCK_\d+\]?\s*[:\-]?\s*/i, '').trim();
+    s = s.replace(/^CONTEXT_BLOCK_\d+\s*[:\-]?\s*/i, '').trim();
+
+    // Remove accidental leading punctuation leftover
+    s = s.replace(/^[\s>:\-–—]+/, '').trim();
+
+    return s;
+  }
+
     function replaceRangeWithText(range, text) {
       try {
         const textNode = document.createTextNode(text);
@@ -748,7 +786,7 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
 
         const question = `Simplify the following text for readability. ${profileNote} Keep meaning intact, use short sentences, plain vocabulary, and format for readability for users with the given profile. Return the simplified text only.`;
         const simplified = await callProxyForText({ question, selectionText: info.text });
-        if (simplified) replaceRangeWithText(info.range, simplified);
+        if (simplified) replaceRangeWithText(info.range, sanitizeModelOutput(simplified));
         setPopupLoading(false, 'Done');
         removePopup();
       } catch (err) {
@@ -775,7 +813,7 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
       try {
         const question = `Translate the following text to language code "${lang}". Preserve meaning and punctuation. Return only the translated text (no commentary).`;
         const translated = await callProxyForText({ question, selectionText: info.text });
-        if (translated) replaceRangeWithText(info.range, translated);
+        if (translated) replaceRangeWithText(info.range, sanitizeModelOutput(translated));
         setPopupLoading(false, 'Done');
         removePopup();
       } catch (err) {
