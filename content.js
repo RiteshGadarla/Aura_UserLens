@@ -26,29 +26,29 @@
 
       // Using template and later inserted as text node to keep CSP-safe
       return `
-:root {
-  --aura-bg: ${profile.bgColor};
-  --aura-text: ${profile.textColor};
-  --aura-font: ${profile.fontFamily};
-  --aura-size: ${profile.fontSize}px;
-  --aura-line: ${profile.lineHeight};
-  --aura-letter: ${(profile.letterSpacing || 0)}px;
-  --aura-word: ${(profile.wordSpacing || 0)}px;
-}
-*, *::before, *::after {
-  cursor: ${cursor} !important;
-  font-family: ${profile.fontFamily} !important;
-  font-size: ${profile.fontSize}px !important;
-  line-height: ${profile.lineHeight} !important;
-  letter-spacing: ${(profile.letterSpacing || 0)}px !important;
-  word-spacing: ${(profile.wordSpacing || 0)}px !important;
-  color: ${profile.textColor} !important;
-  ${disableAnim ? 'animation: none !important; transition: none !important;' : ''}
-}
-html, body {
-  background-color: ${profile.bgColor} !important;
-}
-${disableAnim ? `* { animation: none !important; transition: none !important; }` : ''}
+        :root {
+          --aura-bg: ${profile.bgColor};
+          --aura-text: ${profile.textColor};
+          --aura-font: ${profile.fontFamily};
+          --aura-size: ${profile.fontSize}px;
+          --aura-line: ${profile.lineHeight};
+          --aura-letter: ${(profile.letterSpacing || 0)}px;
+          --aura-word: ${(profile.wordSpacing || 0)}px;
+        }
+        *, *::before, *::after {
+          cursor: ${cursor} !important;
+          font-family: ${profile.fontFamily} !important;
+          font-size: ${profile.fontSize}px !important;
+          line-height: ${profile.lineHeight} !important;
+          letter-spacing: ${(profile.letterSpacing || 0)}px !important;
+          word-spacing: ${(profile.wordSpacing || 0)}px !important;
+          color: ${profile.textColor} !important;
+          ${disableAnim ? 'animation: none !important; transition: none !important;' : ''}
+        }
+        html, body {
+          background-color: ${profile.bgColor} !important;
+        }
+        ${disableAnim ? `* { animation: none !important; transition: none !important; }` : ''}
       `;
     } catch (e) {
       safeWarn('AURA buildCSS error', e);
@@ -131,17 +131,39 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
     if (!profile) return;
     currentProfile = profile;
     try {
-      // Remove existing
-      document.getElementById(STYLE_ID)?.remove();
-      // Apply global + shadow roots if enabled
-      if (isEnabled) {
-        injectGlobalStyle(profile);
-        injectIntoShadowRoots(profile);
+      // Remove any previously injected global + shadow styles to start clean.
+      try { document.getElementById(STYLE_ID)?.remove(); } catch (e) { /* ignore */ }
+      try { document.querySelectorAll(`#${SHADOW_STYLE_ID}`).forEach(el => el.remove()); } catch (e) { /* ignore */ }
+
+      // Only apply when enabled
+      if (!isEnabled) {
+        safeLog('AURA content: applyProfileToDocument skipped (disabled)');
+        return;
       }
+
+      // Use a microtask to allow the removal to commit before reinjecting.
+      Promise.resolve().then(() => {
+        try {
+          // Inject global style first (creates STYLE_ID node)
+          injectGlobalStyle(profile);
+
+          // Inject into shadow roots shortly after — small delay helps when shadow roots are attached just after DOM updates.
+          setTimeout(() => {
+            try {
+              injectIntoShadowRoots(profile);
+            } catch (e) {
+              safeWarn('AURA content: injectIntoShadowRoots error', e);
+            }
+          }, 40);
+        } catch (e) {
+          safeWarn('AURA content: injectGlobalStyle/injectIntoShadowRoots error', e);
+        }
+      });
     } catch (e) {
       safeWarn('AURA content: applyProfileToDocument error', e);
     }
   }
+
 
   // --- Scrape sections (headings -> sections) ---
   function scrapeSections() {

@@ -1,6 +1,6 @@
 // Profiles with default settings
 const profiles = [
-  { id: 'dyslexia', name: 'Dyslexia', fontSize: 20, fontFamily: "'Verdana', 'Arial', sans-serif", bgColor: "#fffbe6", textColor: "#0b1b3a", lineHeight: 1.6, letterSpacing: 0.15, wordSpacing: 0.25, animations: false, cursorType: 'auto' },
+  { id: 'dyslexia', name: 'Dyslexia', fontSize: 20, fontFamily: "'OpenDyslexic','Verdana', 'Arial', sans-serif", bgColor: "#fffbe6", textColor: "#0b1b3a", lineHeight: 1.6, letterSpacing: 0.15, wordSpacing: 0.25, animations: false, cursorType: 'auto' },
   { id: 'adhd', name: 'ADHD', fontSize: 18, fontFamily: "'Open Sans', sans-serif", bgColor: "#ffffff", textColor: "#111111", lineHeight: 1.4, letterSpacing: 0, wordSpacing: 0, animations: true, cursorType: 'auto' },
   { id: 'autism', name: 'Autism Spectrum', fontSize: 19, fontFamily: "'Arial', sans-serif", bgColor: "#f6fbff", textColor: "#0b2a4a", lineHeight: 1.6, letterSpacing: 0, wordSpacing: 0, animations: true, cursorType: 'auto' },
   { id: 'lowvision', name: 'Low Vision', fontSize: 26, fontFamily: "'Verdana', sans-serif", bgColor: "#000000", textColor: "#ffffff", lineHeight: 1.5, letterSpacing: 0, wordSpacing: 0, animations: true, cursorType: 'auto' },
