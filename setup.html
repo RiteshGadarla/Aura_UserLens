@@ -13,15 +13,13 @@
 </head>
 <body>
   <main class="container">
-    <header>
-      <h1>Welcome to AURA</h1>
-      <p>Select a profile that best matches your needs or create a custom profile.</p>
+    <header aria-labelledby="aura-heading" aria-describedby="aura-desc">
+      <h1 id="aura-heading">Welcome to AURA</h1>
+      <p id="aura-desc">
+        Create a custom profile tailored to your needs, or explore pre-existing profiles
+        designed to help users with different accessibility preferences.
+      </p>
     </header>
-
-    <section class="profiles-grid" id="profilesGrid">
-      <!-- Profile cards injected by JS -->
-    </section>
-
     <section class="custom-section">
       <button id="openCustom">Create Custom Profile</button>
       <div id="customPanel" class="custom-panel hidden">
@@ -132,6 +130,11 @@
         </div>
       </section>
     </div>
+
+    <section class="profiles-grid" id="profilesGrid">
+      <!-- Profile cards injected by JS -->
+    </section>
+
 
     <footer>
       <button id="saveBtn" class="primary">Save & Continue</button>

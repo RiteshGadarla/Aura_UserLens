@@ -9,7 +9,8 @@
     "scripting",
     "contextMenus",
     "tts",
-    "tabs"
+    "tabs",
+    "http://127.0.0.1:3000/"
   ],
   "host_permissions": ["<all_urls>"],
   "background": { "service_worker": "background.js" },
