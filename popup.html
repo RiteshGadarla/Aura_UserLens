@@ -4,15 +4,15 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="popup.css" />
-  <link rel="stylesheet" href="fonts.css" />
   <title>AURA</title>
 </head>
+
 <body>
   <div class="popup">
     <h3>AURA</h3>
+
     <div id="currentProfile">Loading profile...</div>
 
-    <!-- Toggle Switch -->
     <div class="toggle-container">
       <label class="toggle-switch">
         <input type="checkbox" id="toggleApply" checked />
@@ -23,6 +23,58 @@
 
     <div class="actions">
       <button id="openSetup">Open Setup</button>
+    </div>
+
+    <div id="ttsSection" style="display:none; margin-top:14px;">
+      <h4 class="tts-title">Text-to-Speech</h4>
+
+      <label>Accent / Slang
+        <select id="ttsAccent">
+          <option value="en-US">English — United States</option>
+          <option value="en-GB">English — United Kingdom</option>
+          <option value="en-AU">English — Australia</option>
+          <option value="en-IN">English — India</option>
+        </select>
+      </label>
+
+      <label>Voice (auto-loaded)
+        <select id="ttsVoice">
+          <option value="">Auto (best match)</option>
+        </select>
+      </label>
+
+      <label>Pitch (<span id="pitchValue">1.0</span>)
+        <input id="ttsPitch" type="range" min="0.5" max="2" step="0.1" value="1" />
+      </label>
+
+      <label>Speed (<span id="rateValue">1.0</span>)
+        <input id="ttsRate" type="range" min="0.3" max="3" step="0.1" value="1" />
+      </label>
+
+      <label class="checkbox-label">
+        <input type="checkbox" id="ttsHighlight" />
+        <span>Highlight current word (blue underline)</span>
+      </label>
+
+      <label>Speak a specific word (optional)
+        <input id="ttsWord" type="text" placeholder="Type a word (optional)" />
+      </label>
+
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <button id="speakPageBtn" class="primaryBtn">Speak Entire Page</button>
+        <button id="speakSelectedBtn" class="primaryBtn">Speak Selection</button>
+      </div>
+
+      <!-- dynamic controls appear after Speak Entire Page -->
+      <div id="playControls" style="display:none; margin-top:10px; gap:8px;">
+        <button id="startBtn" class="controlBtn">Start</button>
+        <button id="pauseBtn" class="controlBtn">Pause</button>
+        <button id="resumeBtn" class="controlBtn">Resume</button>
+        <button id="stopBtn" class="controlBtn stop">Stop</button>
+      </div>
+
+      <div id="voiceStatus" style="font-size:12px; color:#555; margin-top:8px;"></div>
+
     </div>
   </div>
 
