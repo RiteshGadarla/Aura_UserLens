@@ -352,3 +352,49 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   return true; // async response
 });
+chrome.commands.onCommand.addListener(async (command) => {
+  console.log("Shortcut pressed:", command);
+
+  // 1️⃣ Toggle Night Mode
+  if (command === "toggle_night_mode") {
+    darkModeEnabled = !darkModeEnabled;
+    chrome.storage.local.set({ darkModeEnabled });
+    applyDarkModeToAllTabs();
+    return;
+  }
+
+  // 2️⃣ Open Setup Page
+  if (command === "open_setup_page") {
+    chrome.tabs.create({ url: chrome.runtime.getURL("setup.html") });
+    return;
+  }
+
+  // 3️⃣ Toggle AURA (Enable/Disable Profiles)
+  if (command === "toggle_aura") {
+    const newValue = !(await chrome.storage.sync.get("aura_enabled")).aura_enabled;
+    chrome.storage.sync.set({ aura_enabled: newValue });
+
+    // Notify content scripts on all tabs
+    const tabs = await chrome.tabs.query({});
+    for (const tab of tabs) {
+      if (tab.id && !tab.url.startsWith("chrome://")) {
+        chrome.tabs.sendMessage(tab.id, {
+          type: "AURA_TOGGLE_FROM_SHORTCUT",
+          enabled: newValue
+        });
+      }
+    }
+
+    console.log("AURA enabled:", newValue);
+    return;
+  }
+
+  // 4️⃣ Open Sidepanel
+  if (command === "open_sidepanel") {
+    const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    if (tab?.id) {
+      chrome.tabs.sendMessage(tab.id, { type: "AURA_TOGGLE_PANEL_KEY" });
+    }
+    return;
+  }
+});

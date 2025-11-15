@@ -17,8 +17,8 @@
   let _auraSuppressHide = false;
 
   // --- Safe logging helpers ---
-  function safeLog(...args) { try { console.log(...args); } catch (e) {} }
-  function safeWarn(...args) { try { console.warn(...args); } catch (e) {} }
+  function safeLog(...args) { try { console.log(...args); } catch (e) { } }
+  function safeWarn(...args) { try { console.warn(...args); } catch (e) { } }
 
   // --- Build CSS safely (returns empty string if profile missing) ---
   function buildCSS(profile) {
@@ -215,13 +215,13 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
       for (let i = 0; i < hs.length; i++) {
         const h = hs[i];
         const start = h;
-        const end = hs[i+1] || null;
+        const end = hs[i + 1] || null;
         let node = start.nextSibling;
         const parts = [];
         while (node && node !== end) {
           if (node.nodeType === 1) {
             const tag = node.tagName?.toLowerCase();
-            if (!['nav','aside','footer','script','style','noscript'].includes(tag)) {
+            if (!['nav', 'aside', 'footer', 'script', 'style', 'noscript'].includes(tag)) {
               parts.push(node.innerText || '');
             }
           } else if (node.nodeType === 3) {
@@ -251,7 +251,7 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     try {
       if (!msg || !msg.type) {
-        try { sendResponse({ ok: false, error: 'no_type' }); } catch (e) {}
+        try { sendResponse({ ok: false, error: 'no_type' }); } catch (e) { }
         return true;
       }
 
@@ -262,6 +262,21 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
         } catch (e) {
           sendResponse({ sections: [], url: location.href, title: document.title });
         }
+        return true;
+      }
+
+      if (msg.type === "AURA_TOGGLE_PANEL_KEY") {
+        auraOpenSidePanel();
+        sendResponse({ ok: true });
+        return true;
+      }
+      if (msg.type === "AURA_TOGGLE_FROM_SHORTCUT") {
+        if (!msg.enabled) {
+          removeInjectedStyles();
+        } else if (currentProfile) {
+          applyProfileToDocument(currentProfile);
+        }
+        sendResponse({ ok: true });
         return true;
       }
 
@@ -276,7 +291,7 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
       }
 
       if (msg.type === 'AURA_TOGGLE_SOMETHING') {
-        try { sendResponse({ ok: true }); } catch (e) {}
+        try { sendResponse({ ok: true }); } catch (e) { }
         return true;
       }
 
@@ -287,16 +302,16 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
           sendResponse({ ok: true });
         } catch (e) {
           safeWarn('AURA content: auraOpenSidePanel failed', e);
-          try { sendResponse({ ok: false, error: String(e) }); } catch (ee) {}
+          try { sendResponse({ ok: false, error: String(e) }); } catch (ee) { }
         }
         return true;
       }
 
-      try { sendResponse({ ok: false, error: 'unknown_message_type' }); } catch (e) {}
+      try { sendResponse({ ok: false, error: 'unknown_message_type' }); } catch (e) { }
       return true;
     } catch (e) {
       safeWarn('AURA content: onMessage top-level error', e);
-      try { sendResponse({ ok: false, error: String(e) }); } catch (ee) {}
+      try { sendResponse({ ok: false, error: String(e) }); } catch (ee) { }
       return true;
     }
   });
@@ -348,7 +363,7 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
 
       if (!window.__aura_panel_msg_installed) {
         window.addEventListener('message', (e) => {
-          try { if (e?.data?.AURA_PANEL_CLOSE) auraCloseSidePanel(); } catch (er) {}
+          try { if (e?.data?.AURA_PANEL_CLOSE) auraCloseSidePanel(); } catch (er) { }
         }, { passive: true });
         window.__aura_panel_msg_installed = true;
       }
@@ -362,7 +377,7 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
     try {
       document.getElementById(SIDEPANEL_HOST_ID)?.remove();
       document.getElementById(SIDEPANEL_BACKDROP_ID)?.remove();
-    } catch (e) {}
+    } catch (e) { }
     auraPanelHost = null;
     auraPanelIframe = null;
   }
@@ -601,43 +616,43 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
       }
     }
 
-  // --- sanitize model outputs (strip assistant framing like "The following is the translation...") ---
-  function sanitizeModelOutput(text) {
-    if (!text || typeof text !== 'string') return text || '';
+    // --- sanitize model outputs (strip assistant framing like "The following is the translation...") ---
+    function sanitizeModelOutput(text) {
+      if (!text || typeof text !== 'string') return text || '';
 
-    let s = text.trim();
+      let s = text.trim();
 
-    // Common framing patterns to remove (case-insensitive)
-    // - "The following is the translation of the provided text (CONTEXT_BLOCK_1) into Hindi: ..."
-    // - "The following is a translation of the provided text: ..."
-    // - "Translation:" "Translated:" "Answer:" etc.
-    const framingPatterns = [
-      /^\s*the following is (?:a )?translation(?: of the provided text(?: \(?context_block_\d+\)? )?)?(?: into [^:]+)?:\s*/i,
-      /^\s*the following is (?:a )?translation(?: of the provided text)?:\s*/i,
-      /^\s*the following is (?:the )?translation(?:\:)?\s*/i,
-      /^\s*translation\s*[:\-]\s*/i,
-      /^\s*translated\s*[:\-]\s*/i,
-      /^\s*answer\s*[:\-]\s*/i,
-      /^\s*result\s*[:\-]\s*/i,
-      /^\s*the translation is\s*[:\-]?\s*/i
-    ];
+      // Common framing patterns to remove (case-insensitive)
+      // - "The following is the translation of the provided text (CONTEXT_BLOCK_1) into Hindi: ..."
+      // - "The following is a translation of the provided text: ..."
+      // - "Translation:" "Translated:" "Answer:" etc.
+      const framingPatterns = [
+        /^\s*the following is (?:a )?translation(?: of the provided text(?: \(?context_block_\d+\)? )?)?(?: into [^:]+)?:\s*/i,
+        /^\s*the following is (?:a )?translation(?: of the provided text)?:\s*/i,
+        /^\s*the following is (?:the )?translation(?:\:)?\s*/i,
+        /^\s*translation\s*[:\-]\s*/i,
+        /^\s*translated\s*[:\-]\s*/i,
+        /^\s*answer\s*[:\-]\s*/i,
+        /^\s*result\s*[:\-]\s*/i,
+        /^\s*the translation is\s*[:\-]?\s*/i
+      ];
 
-    for (const re of framingPatterns) {
-      if (re.test(s)) {
-        s = s.replace(re, '').trim();
-        break;
+      for (const re of framingPatterns) {
+        if (re.test(s)) {
+          s = s.replace(re, '').trim();
+          break;
+        }
       }
+
+      // If model included explicit context tags like [CONTEXT_BLOCK_1] or "CONTEXT_BLOCK_1:" remove them
+      s = s.replace(/^\s*\[?CONTEXT_BLOCK_\d+\]?\s*[:\-]?\s*/i, '').trim();
+      s = s.replace(/^CONTEXT_BLOCK_\d+\s*[:\-]?\s*/i, '').trim();
+
+      // Remove accidental leading punctuation leftover
+      s = s.replace(/^[\s>:\-–—]+/, '').trim();
+
+      return s;
     }
-
-    // If model included explicit context tags like [CONTEXT_BLOCK_1] or "CONTEXT_BLOCK_1:" remove them
-    s = s.replace(/^\s*\[?CONTEXT_BLOCK_\d+\]?\s*[:\-]?\s*/i, '').trim();
-    s = s.replace(/^CONTEXT_BLOCK_\d+\s*[:\-]?\s*/i, '').trim();
-
-    // Remove accidental leading punctuation leftover
-    s = s.replace(/^[\s>:\-–—]+/, '').trim();
-
-    return s;
-  }
 
     function replaceRangeWithText(range, text) {
       try {
@@ -726,7 +741,7 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
         // If the server clearly said it did not produce a simplified version, or chosen is empty,
         // retry with an explicit instruction forcing a simplified output.
         const detailsIndicateNoSimplify = /no explicitly simplified version/i.test(details || '') ||
-                                          /no simplified/i.test(details || '');
+          /no simplified/i.test(details || '');
 
         if ((!chosen || chosen.trim().length === 0) || detailsIndicateNoSimplify) {
           // Build a strict follow-up question instructing the model to return only the simplified text
