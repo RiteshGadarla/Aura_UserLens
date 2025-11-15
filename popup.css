@@ -1,34 +1,34 @@
-/* CENTER THE POPUP IN THE PAGE */
+/* CENTER THE POPUP */
 body {
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100vh;
   margin: 0;
-  background: #f0f2f8; /* optional soft background */
+  background: #f0f2f8;
 }
 
-/* === POPUP CONTAINER === */
+/* POPUP CONTAINER */
 .popup {
   width: 300px;
   padding: 16px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: #ffffff;
   color: #1f2937;
-  min-width: 260px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
 }
 
-/* === TITLE === */
+/* TITLE */
 .popup h3 {
-  margin: 0 0 10px;
+  margin: 0 0 12px;
   font-size: 18px;
   font-weight: 600;
   color: #4b6cff;
-  letter-spacing: -0.2px;
+  text-align: center;
 }
 
-/* === CURRENT PROFILE DISPLAY === */
+/* PROFILE */
 #currentProfile {
   font-size: 14px;
   color: #374151;
@@ -38,15 +38,22 @@ body {
   border-radius: 6px;
   border-left: 3px solid #4b6cff;
   font-weight: 500;
-  line-height: 1.4;
 }
 
-/* === TOGGLE SWITCH CONTAINER === */
+/* SECTION */
+.section {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #f9f9fb;
+  border-radius: 8px;
+}
+
+/* TOGGLE */
 .toggle-container {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
   user-select: none;
   font-size: 14px;
 }
@@ -56,7 +63,6 @@ body {
   color: #374151;
 }
 
-/* === SLIDING TOGGLE SWITCH === */
 .toggle-switch {
   position: relative;
   display: inline-block;
@@ -73,14 +79,11 @@ body {
 .slider {
   position: absolute;
   cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  top: 0; left: 0; right: 0; bottom: 0;
   background-color: #d1d5db;
-  transition: background-color 0.3s ease;
+  transition: 0.3s;
   border-radius: 26px;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .slider:before {
@@ -91,12 +94,11 @@ body {
   left: 3px;
   bottom: 3px;
   background-color: white;
-  transition: transform 0.3s ease;
+  transition: 0.3s;
   border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 
-/* ON State */
 input:checked + .slider {
   background-color: #4b6cff;
 }
@@ -105,59 +107,91 @@ input:checked + .slider:before {
   transform: translateX(22px);
 }
 
-/* Hover Effect */
 .toggle-switch:hover .slider {
   box-shadow: 0 0 1px 3px rgba(75, 108, 255, 0.15);
 }
 
-/* === ACTIONS (BUTTONS) === */
-.actions {
-  display: flex;
-  gap: 8px;
+/* STATS & STATUS */
+.stats, .status {
+  font-size: 13px;
+  color: #666;
+  margin-top: 6px;
+}
+
+.time {
+  font-family: monospace;
+  font-weight: bold;
+  color: #1f2937;
+}
+
+/* SLIDER */
+.slider-container {
   margin-top: 8px;
+  font-size: 13px;
+  color: #555;
+}
+
+.slider-container label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+#eyeComfortSaturation {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: #ddd;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+#eyeComfortSaturation::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #4b6cff;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+#eyeComfortSaturation::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #4b6cff;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+#satValue {
+  font-weight: bold;
+  color: #4b6cff;
+}
+
+/* ACTIONS */
+.actions {
+  margin-top: 12px;
+  text-align: center;
 }
 
 .actions button {
-  flex: 1;
-  padding: 10px 12px;
+  padding: 10px 16px;
   border: none;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
-  background: #eef0ff;
-  color: #0b1b3a;
+  background: #4b6cff;
+  color: white;
+  width: 100%;
+  transition: 0.2s;
 }
 
 .actions button:hover {
-  background: #dde1ff;
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(75, 108, 255, 0.2);
-}
-
-#openSetup {
-  background: #4b6cff;
-  color: white;
-}
-
-#openSetup:hover {
   background: #3a5be0;
   transform: translateY(-1px);
   box-shadow: 0 4px 10px rgba(75, 108, 255, 0.3);
-}
-
-/* === RESPONSIVE (for very small popups) === */
-@media (max-width: 280px) {
-  .popup {
-    padding: 12px;
-  }
-  .toggle-container {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-  .toggle-label {
-    font-size: 13px;
-  }
 }

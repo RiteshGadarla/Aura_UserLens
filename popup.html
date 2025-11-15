@@ -12,7 +12,34 @@
     <h3>AURA</h3>
     <div id="currentProfile">Loading profile...</div>
 
-    <!-- Toggle Switch -->
+    <!-- Ad Blocker -->
+    <div class="section">
+      <div class="toggle-container">
+        <label class="toggle-switch">
+          <input type="checkbox" id="adblockToggle" checked />
+          <span class="slider"></span>
+        </label>
+        <span class="toggle-label">Ad Blocker</span>
+      </div>
+      <div class="stats">Blocked: <span id="blockedCount">0</span> ads</div>
+    </div>
+
+    <!-- Auto Dark Mode -->
+    <div class="section">
+      <div class="toggle-container">
+        <label class="toggle-switch">
+          <input type="checkbox" id="darkmodeToggle" checked />
+          <span class="slider"></span>
+        </label>
+        <span class="toggle-label">Auto Night Mode</span>
+      </div>
+      <div class="status">
+        <span id="currentTime" class="time"></span><br>
+        <span id="isNight"></span>
+      </div>
+    </div>
+
+    <!-- Apply AURA -->
     <div class="toggle-container">
       <label class="toggle-switch">
         <input type="checkbox" id="toggleApply" checked />
