@@ -1,12 +1,13 @@
-// popup.js
+// popup.js (UPDATED)
 document.addEventListener('DOMContentLoaded', () => {
   const currentProfileEl = document.getElementById('currentProfile');
   const openSetupBtn = document.getElementById('openSetup');
   const toggleApplyBtn = document.getElementById('toggleApply');
+  const toggleEmotionBtn = document.getElementById('toggleEmotion'); // NEW
 
   function loadProfile() {
     if (chrome && chrome.storage && chrome.storage.sync) {
-      chrome.storage.sync.get(['aura_profile', 'aura_enabled'], (res) => {
+      chrome.storage.sync.get(['aura_profile', 'aura_enabled', 'aura_emotion_aware'], (res) => {
         if (res && res.aura_profile) {
           const p = res.aura_profile;
           currentProfileEl.textContent = `Profile: ${p.name || 'Custom'}`;
@@ -14,11 +15,13 @@ document.addEventListener('DOMContentLoaded', () => {
           currentProfileEl.textContent = 'No profile set';
         }
         toggleApplyBtn.checked = res.aura_enabled !== false; // Default true
+        toggleEmotionBtn.checked = !!res.aura_emotion_aware;
       });
     } else {
       const p = JSON.parse(localStorage.getItem('aura_profile') || 'null');
       currentProfileEl.textContent = p ? `Profile: ${p.name || 'Custom'}` : 'No profile set';
       toggleApplyBtn.checked = localStorage.getItem('aura_enabled') !== 'false';
+      toggleEmotionBtn.checked = localStorage.getItem('aura_emotion_aware') === 'true';
     }
   }
 
@@ -30,10 +33,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const tabId = tabs[0].id;
         if (typeof tabId === 'undefined') return;
         chrome.tabs.sendMessage(tabId, message, (resp) => {
-          // avoid throwing on extension pages / errors
           const err = chrome.runtime.lastError;
           if (err) {
-            // it's normal if content script isn't injected on some pages
             console.warn('AURA popup: sendMessageToActiveTab error', err.message);
           } else {
             console.log('AURA popup: sent message', message, 'resp:', resp);
@@ -45,13 +46,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Toggle AURA on/off (updates storage; content script listens to storage.onChanged)
+  // Toggle AURA on/off (existing)
   toggleApplyBtn.addEventListener('change', () => {
     const enabled = toggleApplyBtn.checked;
     if (chrome && chrome.storage && chrome.storage.sync) {
       chrome.storage.sync.set({ aura_enabled: enabled }, () => {
-        // No need to send a custom message for enabling/disabling because
-        // content.js already listens to storage.onChanged.
         console.log('AURA popup: aura_enabled set to', enabled);
       });
     } else {
@@ -60,18 +59,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Open setup page — ALSO send a toggle-panel message if the content script is present.
+  // NEW: Emotion-aware toggle
+  toggleEmotionBtn.addEventListener('change', () => {
+    const enabled = toggleEmotionBtn.checked;
+    if (chrome && chrome.storage && chrome.storage.sync) {
+      chrome.storage.sync.set({ aura_emotion_aware: enabled }, () => {
+        console.log('AURA popup: aura_emotion_aware set to', enabled);
+        // ask content script to run replacement now (best-effort)
+        if (enabled) sendMessageToActiveTab({ type: 'AURA_RUN_EMOTION_REPLACE' });
+      });
+    } else {
+      localStorage.setItem('aura_emotion_aware', enabled ? 'true' : 'false');
+      console.log('AURA popup: aura_emotion_aware (local) set to', enabled);
+    }
+
+  });
+
+  // Open setup page (unchanged)
   openSetupBtn.addEventListener('click', () => {
-    // 1) Open the setup page in a new tab (same as before)
     try {
       chrome.tabs.create({ url: chrome.runtime.getURL('setup.html') });
     } catch (e) {
-      // fallback for local testing
       window.open('setup.html', '_blank');
     }
-
-    // 2) Try to tell the active page to open the side panel (non-breaking; best-effort)
-    // This uses the message type your content script listens for:
     sendMessageToActiveTab({ type: 'AURA_TOGGLE_PANEL' });
   });
 

@@ -242,7 +242,7 @@ resetCustom.addEventListener('click', () => {
 function resetToDefaultProfile() {
   selectProfile(defaultProfile);
   customPanel.classList.add('hidden');
-  alert('Settings reset to default (Dyslexia profile).');
+  alert('Settings reset to default (None).');
 }
 
 // === SAVE & CONTINUE ===
