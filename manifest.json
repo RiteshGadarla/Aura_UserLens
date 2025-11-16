@@ -57,5 +57,31 @@
   },
   "side_panel": {
     "default_path": "sidepanel.html"
+  },
+  "commands": {
+  "open_sidepanel": {
+    "suggested_key": {
+      "default": "Alt+P"
+    },
+    "description": "Open AURA Side Panel"
+  },
+  "open_setup_page": {
+    "suggested_key": {
+      "default": "Alt+O"
+    },
+    "description": "Open Setup Page"
+  },
+  "toggle_aura": {
+    "suggested_key": {
+      "default": "Alt+U"
+    },
+    "description": "Enable/Disable AURA Profiles"
+  },
+  "toggle_night_mode": {
+    "suggested_key": {
+      "default": "Alt+N"
+    },
+    "description": "Toggle Auto Night Mode"
   }
+}
 }
