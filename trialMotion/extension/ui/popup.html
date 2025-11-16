@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title>trailMotion</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 15px;
+            font-family: Arial, sans-serif;
+            width: 220px;
+            background: #111;
+            color: #fff;
+        }
+        h2 {
+            margin-bottom: 10px;
+            font-size: 18px;
+            text-align: center;
+        }
+        .toggle-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            padding: 10px;
+            background: #222;
+            border-radius: 8px;
+        }
+        input[type="checkbox"] {
+            width: 22px;
+            height: 22px;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>trailMotion</h2>
+
+    <div class="toggle-container">
+        <span>Enable Gestures</span>
+        <input type="checkbox" id="toggleGesture">
+    </div>
+
+    <script type="module" src="popup.js"></script>
+</body>
+</html>
