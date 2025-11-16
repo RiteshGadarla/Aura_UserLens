@@ -186,4 +186,72 @@ app.post('/ask', async (req, res) => {
   }
 });
 
+
+
+
+app.post('/detect', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const pageInfo = body.pageInfo || {};
+    const sections = body.sections || [];
+    // Build a short prompt. Keep the text small — send headings or a sample of each section.
+    const snippets = sections.map(s => `Heading: ${s.heading}\nText: ${s.text.slice(0,800)}\n`).join('\n---\n');
+
+    const prompt = `
+You are an assistant that finds emotionally impactful or dangerous words or vulgar words in the input text and suggests milder replacements.
+Return ONLY a JSON object mapping each detected word or short phrase (lowercase) to a single-word or short-phrase replacement.
+Do NOT include commentary, do not include extra fields.
+If no dangerous words are found return an empty JSON object {}.
+
+Input:
+${snippets}
+`;
+
+    // Example: call Gemini (pseudo). Replace with actual endpoint/provider.
+    // --- PSEUDO: replace with real call to Gemini/VertexAI ---
+    // For example, using a hypothetical endpoint (adjust headers & body as required).
+    const modelResp = await fetch('https://api.example.com/v1/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + GEMINI_API_KEY
+      },
+      body: JSON.stringify({
+        model: 'gemini-1', // update appropriately
+        prompt: prompt,
+        max_tokens: 400
+      })
+    });
+    const modelJson = await modelResp.json();
+    // Extract textual output from modelJson (depends on provider)
+    const textOutput = (modelJson && modelJson.output_text) ? modelJson.output_text : JSON.stringify(modelJson);
+
+    // Try to parse JSON object from output
+    let mapping = {};
+    const m = textOutput.match(/(\{[\s\S]*\})/);
+    if (m && m[1]) {
+      try { mapping = JSON.parse(m[1]); } catch(e) {}
+    } else {
+      // fallback parse: lines like "gun: firearm"
+      const lines = textOutput.split('\n').map(l => l.trim()).filter(Boolean);
+      for (const ln of lines) {
+        const mm = ln.match(/^["']?([^"'\:\-]+)["']?\s*[:\-]\s*["']?(.+?)["']?$/);
+        if (mm) mapping[mm[1].trim().toLowerCase()] = mm[2].trim();
+      }
+    }
+
+    // ensure values are strings
+    const normalized = {};
+    for (const k of Object.keys(mapping||{})) {
+      if (!mapping[k]) continue;
+      normalized[String(k).toLowerCase()] = String(mapping[k]);
+    }
+
+    return res.json(normalized);
+  } catch (err) {
+    console.error('detect error', err);
+    return res.status(500).send(String(err));
+  }
+});
+
 app.listen(PORT, ()=> console.log(`Gemini API proxy listening on ${PORT} — model=${MODEL_NAME}`));
