@@ -1,4 +1,4 @@
-// popup.js — Full AURA Controls
+// popup.js — Full AURA Controls with Focus Mode
 document.addEventListener('DOMContentLoaded', () => {
   const currentProfileEl = document.getElementById('currentProfile');
   const openSetupBtn = document.getElementById('openSetup');
@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const blockedCountEl = document.getElementById('blockedCount');
   const currentTimeEl = document.getElementById('currentTime');
   const isNightEl = document.getElementById('isNight');
+  const focusToggle = document.getElementById('focusToggle');
 
   // Clock + Night Indicator
   function updateClock() {
@@ -23,8 +24,8 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(updateClock, 1000);
   updateClock();
 
-  // Load Profile
-  function loadProfile() {
+  // Load Profile and Focus state
+  function loadProfileAndState() {
     chrome.storage.sync.get(['aura_profile', 'aura_enabled'], (res) => {
       if (res.aura_profile) {
         currentProfileEl.textContent = `Profile: ${res.aura_profile.name || 'Custom'}`;
@@ -33,13 +34,25 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       toggleApplyBtn.checked = res.aura_enabled !== false;
     });
+
+    // Focus persisted in local storage (per-machine)
+    chrome.storage.local.get(['aura_focus'], (data) => {
+      const focus = !!data.aura_focus;
+      focusToggle.checked = focus;
+      // notify active tab so the popup and content are in sync
+      sendToActiveTab({ type: 'AURA_SET_FOCUS', enabled: focus });
+    });
   }
 
   // Send message to active tab
-  function sendToActiveTab(msg) {
+  function sendToActiveTab(msg, callback) {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]?.id) {
-        chrome.tabs.sendMessage(tabs[0].id, msg);
+        chrome.tabs.sendMessage(tabs[0].id, msg, (resp) => {
+          if (callback) callback(resp);
+        });
+      } else if (callback) {
+        callback(null);
       }
     });
   }
@@ -75,11 +88,21 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.storage.sync.set({ aura_enabled: enabled });
   });
 
+  // === Focus Mode ===
+  focusToggle.addEventListener('change', () => {
+    const enabled = focusToggle.checked;
+    // persist locally
+    chrome.storage.local.set({ aura_focus: enabled }, () => {
+      // notify the active tab immediately
+      sendToActiveTab({ type: 'AURA_SET_FOCUS', enabled });
+    });
+  });
+
   // === Open Setup ===
   openSetupBtn.addEventListener('click', () => {
     chrome.tabs.create({ url: chrome.runtime.getURL('setup.html') });
     sendToActiveTab({ type: 'AURA_TOGGLE_PANEL' });
   });
 
-  loadProfile();
+  loadProfileAndState();
 });

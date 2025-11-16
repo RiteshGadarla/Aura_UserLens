@@ -10,7 +10,7 @@ body {
 
 /* POPUP CONTAINER */
 .popup {
-  width: 300px;
+  width: 320px;
   padding: 16px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: #ffffff;
@@ -32,7 +32,7 @@ body {
 #currentProfile {
   font-size: 14px;
   color: #374151;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   padding: 10px 12px;
   background: #f8f9ff;
   border-radius: 6px;
@@ -42,8 +42,8 @@ body {
 
 /* SECTION */
 .section {
-  margin-bottom: 16px;
-  padding: 12px;
+  margin-bottom: 12px;
+  padding: 10px;
   background: #f9f9fb;
   border-radius: 8px;
 }
@@ -195,3 +195,6 @@ input:checked + .slider:before {
   transform: translateY(-1px);
   box-shadow: 0 4px 10px rgba(75, 108, 255, 0.3);
 }
+
+/* Small help copy within the popup */
+.section .status .stats { margin-top: 6px; color: #555; font-size: 13px; }

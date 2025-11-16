@@ -4,6 +4,7 @@
   // IDs
   const STYLE_ID = 'aura-style-override';
   const SHADOW_STYLE_ID = 'aura-shadow-override';
+  const FOCUS_STYLE_ID = 'aura-focus-style';
   const SIDEPANEL_HOST_ID = 'aura-sidepanel-host';
   const SIDEPANEL_BACKDROP_ID = 'aura-sidepanel-backdrop';
 
@@ -12,6 +13,7 @@
   let isEnabled = true;
   let auraPanelHost = null;
   let auraPanelIframe = null;
+  let focusModeEnabled = false;
 
   // Interaction suppression flag (prevents popup from being removed while user interacts with it)
   let _auraSuppressHide = false;
@@ -27,7 +29,6 @@
       const disableAnim = profile.animations === false;
       const cursor = profile.cursorType || 'auto';
 
-      // Using template and later inserted as text node to keep CSP-safe
       return `
 :root {
   --aura-bg: ${profile.bgColor};
@@ -63,7 +64,332 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
     }
   }
 
-  // --- Inject extension @font-face into the page (so pages can load fonts via chrome-extension:// URLs) ---
+  // ---------- Focus Mode: overlay + sanitized clone approach ----------
+  // Build CSS for the focus overlay (single elevated card)
+  function buildFocusOverlayCSS(profile) {
+    const bg = profile?.bgColor || '#fffbe6';
+    const text = profile?.textColor || '#0b1b3a';
+    const size = profile?.fontSize ? `${profile.fontSize}px` : '20px';
+    const line = profile?.lineHeight || 1.6;
+    const link = profile?.linkColor || '#165788';
+
+    return `
+/* AURA Focus Overlay (single elevated card) */
+#aura-focus-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px;
+  z-index: 2147483660;
+  background: rgba(0,0,0,0.55);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* The single elevated card */
+#aura-focus-card {
+  width: min(1100px, 92%);
+  max-height: calc(100vh - 96px);
+  overflow: auto;
+  background: ${bg};
+  color: ${text};
+  font-size: ${size};
+  line-height: ${line};
+  border-radius: 12px;
+  padding: 28px;
+  box-shadow: 0 30px 80px rgba(6,12,34,0.55);
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+
+/* content inside the card should not inherit site-wide heavy backgrounds */
+#aura-focus-card * {
+  background: transparent !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+/* style common elements inside clone for readability */
+#aura-focus-card p, #aura-focus-card h1, #aura-focus-card h2, #aura-focus-card h3,
+#aura-focus-card li, #aura-focus-card blockquote {
+  color: ${text} !important;
+}
+
+/* links inside focused clone */
+#aura-focus-card a, #aura-focus-card a * {
+  color: ${link} !important;
+  text-decoration: underline !important;
+  transition: none !important;
+}
+
+/* images inside card */
+#aura-focus-card img {
+  max-width: 100% !important;
+  height: auto !important;
+  display: block !important;
+  margin: 12px 0 !important;
+}
+
+/* floating toolbar (exit button + small controls) */
+#aura-focus-toolbar {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 2147483665;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+#aura-focus-toolbar button {
+  background: rgba(255,255,255,0.95);
+  border: 1px solid rgba(0,0,0,0.08);
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  #aura-focus-overlay, #aura-focus-card { transition: none !important; }
+}
+`;
+  }
+
+  // Helper: sanitize a cloned node (remove scripts, forms' actions, iframes optionally)
+  function sanitizeClone(node) {
+    try {
+      node.querySelectorAll('script, style').forEach(el => el.remove());
+
+      const walker = document.createTreeWalker(node, NodeFilter.SHOW_ELEMENT, null, false);
+      const removeAttrs = ['onload', 'onclick', 'onmouseover', 'onmouseenter', 'onmouseleave', 'onerror', 'onfocus', 'onblur'];
+      while (walker.nextNode()) {
+        const el = walker.currentNode;
+        for (const a of Array.from(removeAttrs)) {
+          if (el.hasAttribute && el.hasAttribute(a)) el.removeAttribute(a);
+        }
+        if (el.tagName && el.tagName.toLowerCase() === 'iframe') {
+          el.remove();
+        }
+        if (el.tagName && el.tagName.toLowerCase() === 'form') {
+          el.removeAttribute('action');
+          el.setAttribute('onsubmit', 'return false');
+        }
+        // Remove inline styles that force heavy backgrounds
+        if (el.style && el.style.backgroundImage) {
+          el.style.backgroundImage = 'none';
+        }
+      }
+    } catch (e) {
+      safeWarn('AURA sanitizeClone error', e);
+    }
+    return node;
+  }
+
+  // Create overlay, clone content into card, and hide originals (non-destructively)
+  function injectFocusStyle(profile) {
+    try {
+      removeFocusStyle(false); // clean state but don't clear storage by default
+
+      const target = findMainContentCandidate() || document.body;
+      if (!target) {
+        safeWarn('AURA focus: no target element found - aborting overlay creation');
+        return;
+      }
+
+      const overlay = document.createElement('div');
+      overlay.id = 'aura-focus-overlay';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.setAttribute('aria-label', 'AURA Focus Mode overlay');
+
+      const card = document.createElement('div');
+      card.id = 'aura-focus-card';
+      card.tabIndex = 0;
+
+      const clone = target.cloneNode(true);
+      sanitizeClone(clone);
+
+      // If clone is a huge wrapper, try to find common inner content to show first
+      const innerCandidate = clone.querySelector('article, .entry-content, .post-content, #article, .content, .post');
+      const contentToAppend = innerCandidate ? innerCandidate.cloneNode(true) : clone;
+      sanitizeClone(contentToAppend);
+
+      card.appendChild(contentToAppend);
+
+      const toolbar = document.createElement('div');
+      toolbar.id = 'aura-focus-toolbar';
+      const exitBtn = document.createElement('button');
+      exitBtn.textContent = 'Exit Focus';
+      exitBtn.addEventListener('click', () => {
+        try { chrome.runtime && chrome.runtime.sendMessage && chrome.runtime.sendMessage({ type: 'AURA_FOCUS_EXIT' }); } catch (e) {}
+        removeFocusStyle();
+      });
+      const revealBtn = document.createElement('button');
+      revealBtn.textContent = 'Reveal original';
+      let revealed = false;
+      revealBtn.addEventListener('click', () => {
+        revealed = !revealed;
+        if (revealed) {
+          removeFocusStyle(false); // remove overlay but don't clear storage
+        } else {
+          // re-inject with same profile
+          injectFocusStyle(profile || currentProfile || {});
+        }
+      });
+
+      toolbar.appendChild(exitBtn);
+      toolbar.appendChild(revealBtn);
+
+      document.documentElement.appendChild(overlay);
+      document.documentElement.appendChild(toolbar);
+      overlay.appendChild(card);
+
+      const css = buildFocusOverlayCSS(profile || currentProfile || {});
+      const style = document.createElement('style');
+      style.id = FOCUS_STYLE_ID;
+      style.appendChild(document.createTextNode(css));
+      document.head.appendChild(style);
+
+      // Hide other body children (store previous state)
+      const toHide = [];
+      for (const child of Array.from(document.body.children)) {
+        if (child === overlay || child === toolbar) continue;
+        toHide.push(child);
+      }
+      window.__aura_focus_hidden = toHide.map(n => {
+        const prev = {
+          node: n,
+          prevVisibility: n.style.visibility || '',
+          prevDisplay: n.style.display || '',
+          prevAriaHidden: n.getAttribute('aria-hidden')
+        };
+        n.style.visibility = 'hidden';
+        n.style.display = n.style.display || '';
+        try { n.setAttribute('aria-hidden', 'true'); } catch (e) {}
+        return prev;
+      });
+
+      try { card.scrollTop = 0; } catch (e) {}
+
+      focusModeEnabled = true;
+      safeLog('AURA content: injected Focus overlay');
+    } catch (e) {
+      safeWarn('AURA content: injectFocusStyle (overlay) error', e);
+    }
+  }
+
+  // Remove overlay and restore page; if clearStorage === true (default) also clear aura_focus storage
+  function removeFocusStyle(clearStorage = true) {
+    try {
+      const s = document.getElementById(FOCUS_STYLE_ID);
+      if (s) s.remove();
+
+      const overlay = document.getElementById('aura-focus-overlay');
+      if (overlay) overlay.remove();
+      const toolbar = document.getElementById('aura-focus-toolbar');
+      if (toolbar) toolbar.remove();
+
+      if (window.__aura_focus_hidden && Array.isArray(window.__aura_focus_hidden)) {
+        for (const item of window.__aura_focus_hidden) {
+          try {
+            item.node.style.visibility = item.prevVisibility || '';
+            item.node.style.display = item.prevDisplay || '';
+            if (item.prevAriaHidden === null || typeof item.prevAriaHidden === 'undefined') {
+              item.node.removeAttribute('aria-hidden');
+            } else {
+              item.node.setAttribute('aria-hidden', item.prevAriaHidden);
+            }
+          } catch (e) {}
+        }
+      }
+      window.__aura_focus_hidden = null;
+
+      if (clearStorage) {
+        try {
+          if (chrome && chrome.storage && chrome.storage.local) {
+            chrome.storage.local.set({ aura_focus: false }, () => {});
+          }
+        } catch (e) { /* ignore */ }
+      }
+
+      focusModeEnabled = false;
+      safeLog('AURA content: removed Focus overlay and restored page');
+    } catch (e) {
+      safeWarn('AURA content: removeFocusStyle (overlay) error', e);
+    }
+  }
+
+  // --- Find the best candidate for main content ---
+  function findMainContentCandidate() {
+    try {
+      const selectors = [
+        'article[role="article"]',
+        'article[role="main"]',
+        'article',
+        'main[role="main"]',
+        'main',
+        '[role="main"]',
+        '.article',
+        '.post',
+        '.entry-content',
+        '#content',
+        '#main',
+        '.blog-post'
+      ];
+      for (const sel of selectors) {
+        const el = document.querySelector(sel);
+        if (el && isVisible(el) && hasReadableText(el)) return el;
+      }
+
+      const candidates = [...document.body.querySelectorAll('div, section, article, main')].filter(isVisible);
+      let best = null;
+      let bestScore = 0;
+      for (const el of candidates) {
+        const text = (el.innerText || '').trim();
+        const rect = el.getBoundingClientRect();
+        const area = Math.max(0, rect.width * rect.height);
+        const score = (text.length * 3) + Math.floor(area / 1000);
+        if (score > bestScore) {
+          best = el;
+          bestScore = score;
+        }
+      }
+      return best || document.body;
+    } catch (e) {
+      safeWarn('AURA findMainContentCandidate failed', e);
+      return document.body;
+    }
+  }
+
+  function isVisible(el) {
+    try {
+      if (!el || el.nodeType !== 1) return false;
+      const style = window.getComputedStyle(el);
+      if (style.display === 'none' || style.visibility === 'hidden' || parseFloat(style.opacity) === 0) return false;
+      const rect = el.getBoundingClientRect();
+      if (rect.width < 50 || rect.height < 20) return false;
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function hasReadableText(el) {
+    try {
+      const text = (el.innerText || '').trim();
+      return text.length > 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // --- Inject extension @font-face into the page ---
   function injectExtensionFontFaces() {
     try {
       if (document.getElementById('aura-ext-fonts')) return;
@@ -168,7 +494,7 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
     } catch (e) { safeWarn('AURA content: removeInjectedStyles', e); }
   }
 
-  // ---------- Updated applyProfileToDocument (drop-in replacement) ----------
+  // ---------- Updated applyProfileToDocument ----------
   function applyProfileToDocument(profile) {
     if (!profile) return;
     currentProfile = profile;
@@ -197,6 +523,13 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
             } catch (e) {
               safeWarn('AURA content: injectIntoShadowRoots error', e);
             }
+            try {
+              chrome.storage && chrome.storage.local && chrome.storage.local.get(['aura_focus'], (d) => {
+                if (d && d.aura_focus) {
+                  injectFocusStyle(profile);
+                }
+              });
+            } catch (e) { /* ignore */ }
           }, 40);
         } catch (e) {
           safeWarn('AURA content: injectGlobalStyle/injectIntoShadowRoots error', e);
@@ -275,8 +608,52 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
         return true;
       }
 
-      if (msg.type === 'AURA_TOGGLE_SOMETHING') {
-        try { sendResponse({ ok: true }); } catch (e) {}
+      if (msg.type === 'AURA_SET_FOCUS') {
+        try {
+          const enabled = !!msg.enabled;
+          try {
+            if (chrome && chrome.storage && chrome.storage.local) {
+              chrome.storage.local.set({ aura_focus: enabled }, () => {});
+            }
+          } catch (e) { /* ignore */ }
+
+          if (enabled) {
+            if (currentProfile) {
+              injectFocusStyle(currentProfile);
+            } else {
+              try {
+                if (chrome && chrome.storage && chrome.storage.sync) {
+                  chrome.storage.sync.get(['aura_profile'], (res) => {
+                    injectFocusStyle(res?.aura_profile || null);
+                  });
+                } else {
+                  const raw = localStorage.getItem('aura_profile');
+                  injectFocusStyle(raw ? JSON.parse(raw) : null);
+                }
+              } catch (e) {
+                injectFocusStyle(null);
+              }
+            }
+          } else {
+            removeFocusStyle();
+          }
+
+          sendResponse({ ok: true, enabled });
+        } catch (e) {
+          safeWarn('AURA content: AURA_SET_FOCUS handler failed', e);
+          try { sendResponse({ ok: false, error: String(e) }); } catch (ee) {}
+        }
+        return true;
+      }
+
+      if (msg.type === 'AURA_FOCUS_EXIT') {
+        try {
+          removeFocusStyle();
+          sendResponse({ ok: true });
+        } catch (e) {
+          safeWarn('AURA content: AURA_FOCUS_EXIT handler failed', e);
+          try { sendResponse({ ok: false, error: String(e) }); } catch (ee) {}
+        }
         return true;
       }
 
@@ -380,7 +757,7 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
     else auraOpenSidePanel();
   }
 
-  // --- MutationObserver to inject into newly attached shadow roots (dev feature) ---
+  // --- MutationObserver to inject into newly attached shadow roots ---
   const observer = new MutationObserver((mutations) => {
     try {
       if (!isEnabled || !currentProfile) return;
@@ -462,6 +839,26 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
           if (!isEnabled) removeInjectedStyles();
         } catch (e) { safeWarn('AURA local fallback error', e); }
       }
+
+      try {
+        if (chrome && chrome.storage && chrome.storage.local) {
+          chrome.storage.local.get(['aura_focus'], (d) => {
+            if (d && d.aura_focus) {
+              if (currentProfile) injectFocusStyle(currentProfile);
+              else {
+                if (chrome && chrome.storage && chrome.storage.sync) {
+                  chrome.storage.sync.get(['aura_profile'], (res) => {
+                    injectFocusStyle(res?.aura_profile || null);
+                  });
+                } else {
+                  const raw = localStorage.getItem('aura_profile');
+                  injectFocusStyle(raw ? JSON.parse(raw) : null);
+                }
+              }
+            }
+          });
+        }
+      } catch (e) { /* ignore */ }
 
       if (document.body) {
         observer.observe(document.body, { childList: true, subtree: true });
@@ -547,18 +944,14 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
       `;
       document.body.appendChild(popup);
 
-      // Prevent hide while interacting with popup
       popup.addEventListener('pointerdown', (e) => {
         _auraSuppressHide = true;
-        // stop propagation so document mousedown handler doesn't remove popup
         e.stopPropagation();
       }, true);
       popup.addEventListener('pointerup', (e) => {
-        // keep suppressed briefly to allow click/change events to register
         setTimeout(() => { _auraSuppressHide = false; }, 150);
         e.stopPropagation();
       }, true);
-      // Also stopPropagation for clicks inside popup
       popup.addEventListener('mousedown', (e) => e.stopPropagation());
       popup.addEventListener('click', (e) => e.stopPropagation());
 
@@ -601,91 +994,8 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
       }
     }
 
-  // --- sanitize model outputs (strip assistant framing like "The following is the translation...") ---
-  function sanitizeModelOutput(text) {
-    if (!text || typeof text !== 'string') return text || '';
-
-    let s = text.trim();
-
-    // Common framing patterns to remove (case-insensitive)
-    // - "The following is the translation of the provided text (CONTEXT_BLOCK_1) into Hindi: ..."
-    // - "The following is a translation of the provided text: ..."
-    // - "Translation:" "Translated:" "Answer:" etc.
-    const framingPatterns = [
-      /^\s*the following is (?:a )?translation(?: of the provided text(?: \(?context_block_\d+\)? )?)?(?: into [^:]+)?:\s*/i,
-      /^\s*the following is (?:a )?translation(?: of the provided text)?:\s*/i,
-      /^\s*the following is (?:the )?translation(?:\:)?\s*/i,
-      /^\s*translation\s*[:\-]\s*/i,
-      /^\s*translated\s*[:\-]\s*/i,
-      /^\s*answer\s*[:\-]\s*/i,
-      /^\s*result\s*[:\-]\s*/i,
-      /^\s*the translation is\s*[:\-]?\s*/i
-    ];
-
-    for (const re of framingPatterns) {
-      if (re.test(s)) {
-        s = s.replace(re, '').trim();
-        break;
-      }
-    }
-
-    // If model included explicit context tags like [CONTEXT_BLOCK_1] or "CONTEXT_BLOCK_1:" remove them
-    s = s.replace(/^\s*\[?CONTEXT_BLOCK_\d+\]?\s*[:\-]?\s*/i, '').trim();
-    s = s.replace(/^CONTEXT_BLOCK_\d+\s*[:\-]?\s*/i, '').trim();
-
-    // Remove accidental leading punctuation leftover
-    s = s.replace(/^[\s>:\-–—]+/, '').trim();
-
-    return s;
-  }
-
-    function replaceRangeWithText(range, text) {
-      try {
-        const textNode = document.createTextNode(text);
-        range.deleteContents();
-        range.insertNode(textNode);
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        const newRange = document.createRange();
-        newRange.setStartAfter(textNode);
-        newRange.collapse(true);
-        sel.addRange(newRange);
-      } catch (e) {
-        safeWarn('AURA selection: replaceRangeWithText failed', e);
-      }
-    }
-
-    function showPopupForSelection() {
-      try {
-        const info = getSelectionRange();
-        if (!info) { removePopup(); return; }
-        const popup = createPopup();
-        requestAnimationFrame(() => {
-          positionPopup(popup, info.range);
-        });
-      } catch (e) {
-        safeWarn('AURA selection: showPopupForSelection error', e);
-      }
-    }
-
-    function setPopupLoading(loading, message) {
-      const status = document.getElementById(`${POPUP_ID}-status`);
-      if (!status) return;
-      status.innerHTML = '';
-      if (loading) {
-        const spinner = document.createElement('div');
-        spinner.className = 'aura-spinner';
-        spinner.title = message || 'Processing...';
-        status.appendChild(spinner);
-      } else if (message) {
-        status.textContent = message;
-        setTimeout(() => { if (status) status.textContent = ''; }, 1500);
-      }
-    }
-
-    // Call proxy with clearer error handling
+    // Minimal safe proxy caller (your server code is expected at /ask)
     async function callProxyForText({ question, selectionText }) {
-      // internal helper that performs the POST
       async function doPost(payload) {
         const resp = await fetch('http://127.0.0.1:3000/ask', {
           method: 'POST',
@@ -697,39 +1007,29 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
           throw new Error(`Proxy error ${resp.status}: ${txt.slice(0, 200)}`);
         }
         const json = await resp.json().catch(async () => {
-          // fallback: try to return text if JSON parse fails
           const txt = await resp.text().catch(() => '');
           return { rawText: txt };
         });
         return json;
       }
 
-      // Build the basic payload shape your server expects
       const basePayload = {
         question,
         sections: [{ heading: 'selection', text: selectionText, anchor: null }],
         pageInfo: { url: location.href, title: document.title }
       };
 
-      // Try fetching once, then do a single retry with a stronger prompt if needed
       try {
         const result = await doPost(basePayload);
-
-        // Normalize values
         const details = (result && result.details && String(result.details).trim()) ? String(result.details).trim() : '';
         const tldr = (result && result.tldr && String(result.tldr).trim()) ? String(result.tldr).trim() : '';
         const bullets = Array.isArray(result.bullets) ? result.bullets.map(b => (typeof b === 'string' ? b : (b?.text || ''))).filter(Boolean) : [];
-
-        // Choose best available output (priority: details -> tldr -> bullets -> rawText)
         let chosen = details || tldr || (bullets.length ? bullets.join(' ') : '') || (result.rawText || '');
 
-        // If the server clearly said it did not produce a simplified version, or chosen is empty,
-        // retry with an explicit instruction forcing a simplified output.
         const detailsIndicateNoSimplify = /no explicitly simplified version/i.test(details || '') ||
                                           /no simplified/i.test(details || '');
 
         if ((!chosen || chosen.trim().length === 0) || detailsIndicateNoSimplify) {
-          // Build a strict follow-up question instructing the model to return only the simplified text
           const retryQuestion = `Please produce ONLY a plain-text simplified version of the following text for readability, following the user's accessibility preferences. Keep meaning intact, use short sentences and plain words, and do NOT include extra commentary or metadata. Return only the simplified text.`;
           const retryPayload = {
             question: retryQuestion + '\n\nOriginal request context:\n' + (question || ''),
@@ -747,14 +1047,11 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
             if (retryChosen && retryChosen.trim().length > 0) {
               return retryChosen.trim();
             } else {
-              // If still empty, fall back to building a short summary from bullets or original question
               if (rBullets && rBullets.length) return rBullets.join(' ');
               if (retryChosen && retryChosen.trim()) return retryChosen.trim();
-              // last resort: return original selection (so we don't null)
               return selectionText;
             }
           } catch (retryErr) {
-            // If retry failed, propagate original successful result if any, otherwise throw
             if (chosen && chosen.trim().length > 0) return chosen;
             const err = new Error(String(retryErr.message || retryErr));
             err.isProxyUnavailable = /Failed to fetch/i.test(String(retryErr.message || retryErr));
@@ -762,10 +1059,8 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
           }
         }
 
-        // Good result found
         return chosen.trim();
       } catch (e) {
-        // Network-level or fetch errors
         safeWarn('AURA selection: callProxyForText failed in enhanced handler', e);
         const err = new Error(e.message || 'Failed to fetch');
         err.isProxyUnavailable = (e instanceof TypeError) || /Failed to fetch/i.test(String(e.message || e));
@@ -773,7 +1068,47 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
       }
     }
 
-    // Simplify click handler
+    function sanitizeModelOutput(text) {
+      if (!text || typeof text !== 'string') return text || '';
+      let s = text.trim();
+      const framingPatterns = [
+        /^\s*the following is (?:a )?translation(?: of the provided text(?: \(?context_block_\d+\)? )?)?(?: into [^:]+)?:\s*/i,
+        /^\s*the following is (?:a )?translation(?: of the provided text)?:\s*/i,
+        /^\s*the following is (?:the )?translation(?:\:)?\s*/i,
+        /^\s*translation\s*[:\-]\s*/i,
+        /^\s*translated\s*[:\-]\s*/i,
+        /^\s*answer\s*[:\-]\s*/i,
+        /^\s*result\s*[:\-]\s*/i,
+        /^\s*the translation is\s*[:\-]?\s*/i
+      ];
+      for (const re of framingPatterns) {
+        if (re.test(s)) {
+          s = s.replace(re, '').trim();
+          break;
+        }
+      }
+      s = s.replace(/^\s*\[?CONTEXT_BLOCK_\d+\]?\s*[:\-]?\s*/i, '').trim();
+      s = s.replace(/^CONTEXT_BLOCK_\d+\s*[:\-]?\s*/i, '').trim();
+      s = s.replace(/^[\s>:\-–—]+/, '').trim();
+      return s;
+    }
+
+    function replaceRangeWithText(range, text) {
+      try {
+        const textNode = document.createTextNode(text);
+        range.deleteContents();
+        range.insertNode(textNode);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        const newRange = document.createRange();
+        newRange.setStartAfter(textNode);
+        newRange.collapse(true);
+        sel.addRange(newRange);
+      } catch (e) {
+        safeWarn('AURA selection: replaceRangeWithText failed', e);
+      }
+    }
+
     async function onSimplifyClick(e) {
       e.stopPropagation();
       const info = getSelectionRange();
@@ -804,12 +1139,10 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
       }
     }
 
-    // Translate handler
     async function onTranslateSelect(e) {
       e.stopPropagation();
       const lang = e.target.value;
       if (!lang) return;
-      // reset select after triggering
       e.target.value = '';
       const info = getSelectionRange();
       if (!info) return removePopup();
@@ -831,8 +1164,21 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
       }
     }
 
-    // Hide popup when clicking elsewhere or when selection collapses,
-    // but respect the suppression flag while interacting with popup
+    function setPopupLoading(loading, message) {
+      const status = document.getElementById(`${POPUP_ID}-status`);
+      if (!status) return;
+      status.innerHTML = '';
+      if (loading) {
+        const spinner = document.createElement('div');
+        spinner.className = 'aura-spinner';
+        spinner.title = message || 'Processing...';
+        status.appendChild(spinner);
+      } else if (message) {
+        status.textContent = message;
+        setTimeout(() => { if (status) status.textContent = ''; }, 1500);
+      }
+    }
+
     function onDocMouseDown(e) {
       const popup = document.getElementById(POPUP_ID);
       if (!popup) return;
@@ -840,7 +1186,6 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
     }
 
     function onSelectionChangeTrigger() {
-      // If user is interacting with popup, don't hide it
       if (_auraSuppressHide) return;
       setTimeout(() => {
         const info = getSelectionRange();
@@ -850,6 +1195,19 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
           removePopup();
         }
       }, 10);
+    }
+
+    function showPopupForSelection() {
+      try {
+        const info = getSelectionRange();
+        if (!info) { removePopup(); return; }
+        const popup = createPopup();
+        requestAnimationFrame(() => {
+          positionPopup(popup, info.range);
+        });
+      } catch (e) {
+        safeWarn('AURA selection: showPopupForSelection error', e);
+      }
     }
 
     document.addEventListener('mouseup', onSelectionChangeTrigger, true);
