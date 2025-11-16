@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="popup.css" />
-  <link rel="stylesheet" href="fonts.css" />
   <title>AURA</title>
 </head>
 <body>
@@ -12,26 +11,40 @@
     <h3>AURA</h3>
     <div id="currentProfile">Loading profile...</div>
 
+    <!-- APPLY AURA (TOP MOST) -->
+    <div class="section aura-main-toggle">
+  <div class="toggle-container">
+    <span class="toggle-label">Apply AURA</span>
+
+    <label class="toggle-switch">
+      <input type="checkbox" id="toggleApply" checked />
+      <span class="slider"></span>
+    </label>
+  </div>
+    <!-- EVERYTHING BELOW DISABLED WHEN AURA = OFF -->
+
     <!-- Ad Blocker -->
-    <div class="section">
+    <div class="section aura-child">
       <div class="toggle-container">
+        <span class="toggle-label">Ad Blocker</span>
+
         <label class="toggle-switch">
           <input type="checkbox" id="adblockToggle" checked />
           <span class="slider"></span>
         </label>
-        <span class="toggle-label">Ad Blocker</span>
       </div>
       <div class="stats">Blocked: <span id="blockedCount">0</span> ads</div>
     </div>
 
     <!-- Auto Dark Mode -->
-    <div class="section">
+    <div class="section aura-child">
       <div class="toggle-container">
+        <span class="toggle-label">Auto Night Mode</span>
+
         <label class="toggle-switch">
           <input type="checkbox" id="darkmodeToggle" checked />
           <span class="slider"></span>
         </label>
-        <span class="toggle-label">Auto Night Mode</span>
       </div>
       <div class="status">
         <span id="currentTime" class="time"></span><br>
@@ -39,26 +52,59 @@
       </div>
     </div>
 
-    <!-- Apply AURA -->
-    <div class="toggle-container">
-      <label class="toggle-switch">
-        <input type="checkbox" id="toggleApply" checked />
-        <span class="slider"></span>
-      </label>
-      <span class="toggle-label">Apply AURA</span>
-    </div>
-
     <!-- Focus Mode -->
-    <div class="section">
+    <div class="section aura-child">
       <div class="toggle-container">
+        <span class="toggle-label">Focus Mode</span>
+
         <label class="toggle-switch">
           <input type="checkbox" id="focusToggle" />
           <span class="slider"></span>
         </label>
-        <span class="toggle-label">Focus Mode</span>
       </div>
       <div class="status">
-        <div class="stats">Centers main content, hides sidebars & ads. Use on articles or long reads.</div>
+        <div class="stats">Centers main content, hides sidebars & ads.</div>
+      </div>
+    </div>
+
+    <!-- TTS Section -->
+    <div id="ttsSection" class="tts-section aura-child">
+      <h4 class="tts-title">🎤 Text-to-Speech</h4>
+
+      <label class="tts-label">Accent / Slang
+        <select id="ttsAccent">
+          <option value="en-US">English — United States</option>
+          <option value="en-GB">English — United Kingdom</option>
+          <option value="en-AU">English — Australia</option>
+          <option value="en-IN">English — India</option>
+        </select>
+      </label>
+
+      <label class="tts-label">Voice
+        <select id="ttsVoice">
+          <option value="">Auto (best match)</option>
+        </select>
+      </label>
+
+      <div class="tts-sliders">
+        <label class="tts-label">Pitch (<span id="pitchValue">1.0</span>)
+          <input id="ttsPitch" type="range" min="0.5" max="2" step="0.1" value="1" />
+        </label>
+        <label class="tts-label">Speed (<span id="rateValue">1.0</span>)
+          <input id="ttsRate" type="range" min="0.3" max="3" step="0.1" value="1" />
+        </label>
+      </div>
+
+      <div class="tts-buttons">
+        <button id="speakPageBtn">📖 Speak Entire Page</button>
+        <button id="speakSelectedBtn">✂️ Speak Selection</button>
+      </div>
+
+      <div id="playControls" class="play-controls">
+        <button id="startBtn">▶️ Start</button>
+        <button id="pauseBtn">⏸️ Pause</button>
+        <button id="resumeBtn">▶️ Resume</button>
+        <button id="stopBtn" class="stop">⏹️ Stop</button>
       </div>
     </div>
 

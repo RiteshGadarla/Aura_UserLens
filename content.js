@@ -7,6 +7,7 @@
   const FOCUS_STYLE_ID = 'aura-focus-style';
   const SIDEPANEL_HOST_ID = 'aura-sidepanel-host';
   const SIDEPANEL_BACKDROP_ID = 'aura-sidepanel-backdrop';
+  const HIGHLIGHT_CSS_ID = 'aura-tts-highlight-style';
 
   // State
   let currentProfile = null;
@@ -15,12 +16,476 @@
   let auraPanelIframe = null;
   let focusModeEnabled = false;
 
+  // TTS Highlighting State (from earlier content.js)
+  let fullText = '';               // continuous concatenation of mapped node texts (normalized)
+  let textNodeMap = [];            // array of { node: TextNode, start: number, end: number, text: string }
+  let lastMapBuildTime = 0;        // timestamp when map was last built
+  let lastMatchPosition = 0;       // heuristic pointer for searches
+  let currentHighlightWrapper = null;
+  let lastGlobalIndexHighlighted = -1;
+  let rebuildScheduled = false;
+  let rebuildTimeout = null;
+
   // Interaction suppression flag (prevents popup from being removed while user interacts with it)
   let _auraSuppressHide = false;
 
   // --- Safe logging helpers ---
-  function safeLog(...args) { try { console.log(...args); } catch (e) { } }
-  function safeWarn(...args) { try { console.warn(...args); } catch (e) { } }
+  function safeLog(...args) { try { console.log('[AURA]', ...args); } catch (e) { } }
+  function safeWarn(...args) { try { console.warn('[AURA]', ...args); } catch (e) { } }
+
+  // ---------------------------
+  // TTS Highlight CSS (from earlier)
+  // ---------------------------
+  function ensureHighlightStyle() {
+    try {
+      if (document.getElementById(HIGHLIGHT_CSS_ID)) return;
+      const css = `
+/* AURA TTS highlight */
+span.aura-tts-highlight, span[data-aura-tts].aura-tts-highlight {
+  text-decoration: underline;
+  text-decoration-thickness: 3px;
+  text-decoration-color: #4b6cff;
+  text-underline-offset: 3px;
+  font-weight: 600;
+  background: transparent !important;
+  color: inherit !important;
+  -webkit-text-decoration-color: #4b6cff !important;
+  -webkit-text-decoration-thickness: 3px !important;
+  pointer-events: none;
+}
+[data-aura-tts] { pointer-events: none; }
+`;
+      const style = document.createElement('style');
+      style.id = HIGHLIGHT_CSS_ID;
+      style.appendChild(document.createTextNode(css));
+      (document.head || document.documentElement).appendChild(style);
+    } catch (e) {
+      safeWarn('ensureHighlightStyle failed', e);
+    }
+  }
+
+  // ---------------------------
+  // Text Mapping Functions (from earlier Part 1)
+  // ---------------------------
+  function nodeTagExcluded(tagName) {
+    if (!tagName) return false;
+    const t = tagName.toLowerCase();
+    return ['script', 'style', 'noscript', 'svg', 'canvas', 'iframe'].includes(t);
+  }
+
+  function shouldIncludeTextNode(textNode) {
+    try {
+      if (!textNode || textNode.nodeType !== Node.TEXT_NODE) return false;
+      const parent = textNode.parentElement;
+      if (!parent) return false;
+      if (nodeTagExcluded(parent.tagName)) return false;
+
+      if (!textNode.textContent || !textNode.textContent.trim()) return false;
+
+      if (parent.tagName && ['input', 'textarea'].includes(parent.tagName.toLowerCase())) return false;
+
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function normalizeTextForMap(s) {
+    if (!s) return '';
+    return String(s).replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  function buildTextNodeMap(force = false) {
+    try {
+      const now = Date.now();
+      if (!force && (now - lastMapBuildTime) < 300) {
+        return;
+      }
+
+      fullText = '';
+      textNodeMap = [];
+
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+      let node;
+      let pos = 0;
+      while ((node = walker.nextNode())) {
+        try {
+          if (!shouldIncludeTextNode(node)) continue;
+          const raw = node.textContent || '';
+          const normalized = normalizeTextForMap(raw);
+          if (!normalized) continue;
+
+          const start = pos;
+          const end = start + normalized.length;
+          textNodeMap.push({ node, start, end, text: normalized });
+          fullText += normalized;
+          pos = end;
+        } catch (e) {
+          // skip nodes that throw
+        }
+      }
+
+      lastMapBuildTime = now;
+      lastMatchPosition = 0;
+      safeLog('buildTextNodeMap: chars=', fullText.length, 'nodes=', textNodeMap.length);
+    } catch (e) {
+      safeWarn('buildTextNodeMap failed', e);
+      fullText = '';
+      textNodeMap = [];
+    }
+  }
+
+  function findMapIndexByGlobalIndex(globalIndex) {
+    let lo = 0, hi = textNodeMap.length - 1;
+    while (lo <= hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      const entry = textNodeMap[mid];
+      if (!entry) break;
+      if (globalIndex < entry.start) {
+        hi = mid - 1;
+      } else if (globalIndex >= entry.end) {
+        lo = mid + 1;
+      } else {
+        return mid;
+      }
+    }
+    return -1;
+  }
+
+  function findChunkInFullText(chunkText, approxStart = 0) {
+    try {
+      if (!chunkText) return -1;
+      if (!fullText) return -1;
+
+      const sampleNorm = normalizeTextForMap(chunkText);
+      if (!sampleNorm) return -1;
+
+      const windowRadius = 8000;
+      const from = Math.max(0, Math.floor(approxStart - windowRadius));
+      const to = Math.min(fullText.length, Math.floor(approxStart + windowRadius));
+      const windowText = fullText.slice(from, to);
+
+      let localIdx = windowText.indexOf(sampleNorm);
+      if (localIdx !== -1) return from + localIdx;
+
+      const globalIdx = fullText.indexOf(sampleNorm);
+      if (globalIdx !== -1) return globalIdx;
+
+      const shortSample = sampleNorm.slice(0, 60);
+      if (shortSample.length >= 8) {
+        const shortIdx = fullText.indexOf(shortSample);
+        if (shortIdx !== -1) return shortIdx;
+      }
+
+      return -1;
+    } catch (e) {
+      return -1;
+    }
+  }
+
+  // ---------------------------
+  // Highlighting Functions (from earlier Part 2)
+  // ---------------------------
+  function clearAuraHighlights() {
+    try {
+      const wrappers = Array.from(document.querySelectorAll('[data-aura-tts]'));
+      wrappers.forEach(w => {
+        try {
+          const parent = w.parentNode;
+          if (!parent) return;
+          const frag = document.createDocumentFragment();
+          frag.appendChild(document.createTextNode(w.textContent || ''));
+          parent.replaceChild(frag, w);
+        } catch (e) {
+          try { w.remove(); } catch (ee) {}
+        }
+      });
+
+      Array.from(document.querySelectorAll('span.aura-tts-highlight')).forEach(s => {
+        try {
+          const parent = s.parentNode;
+          if (!parent) return;
+          parent.replaceChild(document.createTextNode(s.textContent || ''), s);
+        } catch (e) {}
+      });
+
+      currentHighlightWrapper = null;
+      lastGlobalIndexHighlighted = -1;
+    } catch (e) {
+      safeWarn('clearAuraHighlights error', e);
+    }
+  }
+
+  function elementIsInViewport(el) {
+    try {
+      if (!el || typeof el.getBoundingClientRect !== 'function') return false;
+      const rect = el.getBoundingClientRect();
+      const vw = (window.innerWidth || document.documentElement.clientWidth);
+      const vh = (window.innerHeight || document.documentElement.clientHeight);
+      const marginV = Math.min(120, Math.floor(vh * 0.15));
+      const marginH = Math.min(80, Math.floor(vw * 0.1));
+      const topVisible = rect.top >= 0 - marginV && rect.top <= vh + marginV;
+      const bottomVisible = rect.bottom >= 0 - marginV && rect.bottom <= vh + marginV;
+      const leftVisible = rect.left >= 0 - marginH && rect.left <= vw + marginH;
+      const rightVisible = rect.right >= 0 - marginH && rect.right <= vw + marginH;
+      return (topVisible || bottomVisible) && (leftVisible || rightVisible);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function smartScrollIfNeeded(el) {
+    try {
+      if (!el) return;
+      if (elementIsInViewport(el)) return;
+      try {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+      } catch (e) {
+        const rect = el.getBoundingClientRect();
+        window.scrollBy({ top: rect.top - (window.innerHeight / 2), behavior: 'smooth' });
+      }
+    } catch (e) {
+      safeWarn('smartScrollIfNeeded error', e);
+    }
+  }
+
+  function createHighlightWrapperForFragment(fragment) {
+    try {
+      const wrapper = document.createElement('span');
+      wrapper.setAttribute('data-aura-tts', '1');
+      wrapper.className = 'aura-tts-highlight';
+      wrapper.style.cssText = 'text-decoration: underline; text-decoration-thickness: 3px; text-decoration-color:#4b6cff; text-underline-offset:3px; font-weight:600; background: transparent;';
+      wrapper.appendChild(fragment);
+      return wrapper;
+    } catch (e) {
+      safeWarn('createHighlightWrapperForFragment failed', e);
+      return null;
+    }
+  }
+
+  function highlightGlobalRange(startGlobal, endGlobal) {
+    try {
+      if (!textNodeMap || textNodeMap.length === 0) buildTextNodeMap(true);
+      if (!textNodeMap || textNodeMap.length === 0) return;
+
+      startGlobal = Math.max(0, Math.min(startGlobal, fullText.length - 1));
+      endGlobal = Math.max(startGlobal + 1, Math.min(endGlobal, fullText.length));
+
+      if (lastGlobalIndexHighlighted === startGlobal && currentHighlightWrapper) return;
+
+      clearAuraHighlights();
+
+      let startIdx = findMapIndexByGlobalIndex(startGlobal);
+      if (startIdx === -1) {
+        startIdx = 0;
+        while (startIdx < textNodeMap.length && textNodeMap[startIdx].end <= startGlobal) startIdx++;
+        if (startIdx >= textNodeMap.length) startIdx = textNodeMap.length - 1;
+      }
+
+      let endIdx = findMapIndexByGlobalIndex(endGlobal - 1);
+      if (endIdx === -1) {
+        endIdx = textNodeMap.length - 1;
+        while (endIdx >= 0 && textNodeMap[endIdx].start > endGlobal) endIdx--;
+        if (endIdx < 0) endIdx = 0;
+      }
+
+      const resultFrag = document.createDocumentFragment();
+
+      for (let i = startIdx; i <= endIdx && i < textNodeMap.length; i++) {
+        const entry = textNodeMap[i];
+        if (!entry) continue;
+        const node = entry.node;
+        const nodeTextNorm = entry.text || '';
+        const overlapStart = Math.max(startGlobal, entry.start);
+        const overlapEnd = Math.min(endGlobal, entry.end);
+        if (overlapStart >= overlapEnd) continue;
+        const localStartNorm = overlapStart - entry.start;
+        const localEndNorm = overlapEnd - entry.start;
+        const snippetNorm = nodeTextNorm.slice(localStartNorm, localEndNorm);
+
+        const realText = node.textContent || '';
+        let foundInReal = -1;
+
+        foundInReal = realText.indexOf(snippetNorm);
+
+        if (foundInReal === -1) {
+          const sample = snippetNorm.slice(0, Math.min(30, snippetNorm.length));
+          foundInReal = realText.indexOf(sample);
+        }
+
+        if (foundInReal === -1) {
+          const r = document.createRange();
+          r.selectNodeContents(node);
+          resultFrag.appendChild(r.extractContents());
+          continue;
+        }
+
+        const startOffsetInReal = foundInReal;
+        const endOffsetInReal = foundInReal + snippetNorm.length;
+
+        const range = document.createRange();
+        try {
+          range.setStart(node, startOffsetInReal);
+          range.setEnd(node, endOffsetInReal);
+          const extracted = range.extractContents();
+          resultFrag.appendChild(extracted);
+        } catch (e) {
+          try {
+            const r2 = document.createRange();
+            r2.selectNodeContents(node);
+            const ext = r2.extractContents();
+            resultFrag.appendChild(ext);
+          } catch (ee) {
+            // ignore
+          }
+        }
+      }
+
+      let insertBeforeNode = null;
+      try {
+        const firstEntry = textNodeMap[startIdx];
+        if (firstEntry && firstEntry.node && firstEntry.node.parentNode) {
+          insertBeforeNode = firstEntry.node;
+        }
+      } catch (e) {}
+
+      const wrapper = createHighlightWrapperForFragment(resultFrag);
+      if (!wrapper) return;
+
+      if (insertBeforeNode && insertBeforeNode.parentNode) {
+        try {
+          const parent = insertBeforeNode.parentNode;
+          parent.insertBefore(wrapper, insertBeforeNode);
+        } catch (e) {
+          document.body.appendChild(wrapper);
+        }
+      } else {
+        document.body.appendChild(wrapper);
+      }
+
+      currentHighlightWrapper = wrapper;
+      lastGlobalIndexHighlighted = startGlobal;
+
+      try { smartScrollIfNeeded(wrapper); } catch (e) {}
+
+    } catch (e) {
+      safeWarn('highlightGlobalRange error', e);
+    }
+  }
+
+  function highlightAtGlobalIndex(globalIndex) {
+    try {
+      if (!fullText || !textNodeMap || textNodeMap.length === 0) {
+        buildTextNodeMap(true);
+      }
+      globalIndex = Math.max(0, Math.min(globalIndex, fullText.length - 1));
+
+      let left = globalIndex;
+      while (left > 0 && !(/\s/.test(fullText[left - 1]))) left--;
+      let right = globalIndex;
+      while (right < fullText.length && !(/\s/.test(fullText[right]))) right++;
+      if (left === right) {
+        if (right < fullText.length) right++;
+        else if (left > 0) left--;
+      }
+
+      highlightGlobalRange(left, right);
+    } catch (e) {
+      safeWarn('highlightAtGlobalIndex error', e);
+    }
+  }
+
+  function mapChunkIndexToGlobal(chunkText, chunkCharIndex) {
+    try {
+      if (!chunkText || typeof chunkCharIndex !== 'number') return -1;
+      if (!fullText || !textNodeMap || textNodeMap.length === 0) buildTextNodeMap(true);
+
+      let approx = Math.max(0, lastMatchPosition);
+      let foundAt = findChunkInFullText(chunkText, approx);
+
+      if (foundAt === -1) {
+        foundAt = findChunkInFullText(chunkText, 0);
+      }
+
+      if (foundAt === -1) {
+        const sample = normalizeTextForMap(chunkText).slice(0, 60);
+        if (sample && sample.length >= 6) {
+          foundAt = fullText.indexOf(sample);
+        }
+      }
+
+      if (foundAt === -1) {
+        const norm = normalizeTextForMap(chunkText);
+        for (let len = Math.min(80, norm.length); len >= 12 && foundAt === -1; len -= 12) {
+          const sub = norm.slice(0, len);
+          foundAt = fullText.indexOf(sub);
+        }
+      }
+
+      if (foundAt === -1) {
+        foundAt = Math.max(0, Math.min(lastMatchPosition || 0, Math.max(0, fullText.length - 1)));
+      } else {
+        lastMatchPosition = Math.max(0, foundAt - 50);
+      }
+
+      const globalIndex = foundAt + Math.max(0, chunkCharIndex);
+      return Math.max(0, Math.min(globalIndex, Math.max(0, fullText.length - 1)));
+    } catch (e) {
+      safeWarn('mapChunkIndexToGlobal failed', e);
+      return -1;
+    }
+  }
+
+  // MutationObserver for TTS map rebuilds (from earlier Part 3)
+  const ttsMutationObserver = new MutationObserver((mutations) => {
+    try {
+      let shouldRebuild = false;
+      for (const m of mutations) {
+        if (m.type === 'characterData') {
+          shouldRebuild = true;
+          break;
+        }
+        if (m.addedNodes && m.addedNodes.length) {
+          shouldRebuild = true;
+          break;
+        }
+        if (m.removedNodes && m.removedNodes.length) {
+          shouldRebuild = true;
+          break;
+        }
+      }
+
+      if (!shouldRebuild) return;
+
+      if (rebuildTimeout) clearTimeout(rebuildTimeout);
+      rebuildTimeout = setTimeout(() => {
+        try {
+          buildTextNodeMap(true);
+        } catch (e) {
+          safeWarn('debounced buildTextNodeMap failed', e);
+        }
+      }, 220);
+    } catch (e) {
+      safeWarn('ttsMutationObserver handler error', e);
+    }
+  });
+
+  // Setup TTS MutationObserver
+  try {
+    if (document.body) {
+      ttsMutationObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+    } else {
+      document.addEventListener('DOMContentLoaded', () => {
+        if (document.body) ttsMutationObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+      });
+    }
+  } catch (e) {
+    safeWarn('ttsMutationObserver setup failed', e);
+  }
+
+  // Initial TTS map build
+  ensureHighlightStyle();
+  try { buildTextNodeMap(); } catch (e) { safeWarn('initial build failed', e); }
 
   // --- Build CSS safely (returns empty string if profile missing) ---
   function buildCSS(profile) {
@@ -580,11 +1045,51 @@ ${disableAnim ? `* { animation: none !important; transition: none !important; }`
     }
   }
 
-  // --- Single defensive message listener ---
+  // --- Single defensive message listener (merged with TTS handlers) ---
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     try {
       if (!msg || !msg.type) {
         try { sendResponse({ ok: false, error: 'no_type' }); } catch (e) { }
+        return true;
+      }
+
+      // TTS Handlers (from earlier Part 3)
+      if (msg.type === 'AURA_HIGHLIGHT_CLEAR') {
+        try {
+          clearAuraHighlights();
+          sendResponse({ ok: true });
+        } catch (e) {
+          safeWarn('AURA_HIGHLIGHT_CLEAR error', e);
+          sendResponse({ ok: false, error: String(e) });
+        }
+        return true;
+      }
+
+      if (msg.type === 'AURA_HIGHLIGHT') {
+        (async () => {
+          try {
+            const { index: charIndex, text: chunkText } = msg || {};
+            if (!chunkText || typeof charIndex !== 'number') {
+              try { sendResponse({ ok: false, error: 'invalid_payload' }); } catch (e) {}
+              return;
+            }
+
+            try { buildTextNodeMap(true); } catch (ee) {}
+
+            const globalIndex = mapChunkIndexToGlobal(chunkText, charIndex);
+
+            if (globalIndex >= 0) {
+              highlightAtGlobalIndex(globalIndex);
+              try { sendResponse({ ok: true, globalIndex }); } catch (e) {}
+            } else {
+              try { clearAuraHighlights(); } catch (e) {}
+              try { sendResponse({ ok: false, error: 'map_failed' }); } catch (e) {}
+            }
+          } catch (e) {
+            safeWarn('AURA_HIGHLIGHT worker error', e);
+            try { sendResponse({ ok: false, error: String(e) }); } catch (ee) {}
+          }
+        })();
         return true;
       }
 

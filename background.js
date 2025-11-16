@@ -1,4 +1,4 @@
-// background.js — AURA: Full Features + Ad Block + Auto Night Dark Mode
+// background.js — AURA: Full Features + Ad Block + Auto Night Dark Mode + TTS
 const DEFAULT_TIMEOUT_MS = 3500;
 const ADBLOCK_RULESET_ID = "adblock_rules";
 
@@ -335,8 +335,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         try {
           chrome.tts.speak(msg.text || "", {
             enqueue: false,
-            rate: 1.0,
-            pitch: 1.0
+            rate: msg.rate || 1.0,
+            pitch: msg.pitch || 1.0,
+            voiceName: msg.voiceName || '',
+            lang: msg.lang || ''
           });
         } catch (e) {
           console.warn('AURA TTS error:', e);
